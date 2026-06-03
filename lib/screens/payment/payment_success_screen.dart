@@ -18,18 +18,35 @@ class PaymentSuccessScreen extends StatelessWidget {
           child: Column(
             children: [
               const Spacer(),
-              Container(
-                width: 174,
-                height: 174,
-                decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle),
-                child: const Icon(Icons.check_rounded, color: Colors.white, size: 92),
+              SizedBox(
+                width: 300,
+                height: 300,
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/images/Payment-success-logo.png',
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: AppColors.success,
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.check_rounded,
+                          color: Colors.white, size: 92),
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 34),
-              const Text('Payment confirmed', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+              const Text('Payment confirmed',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
               const SizedBox(height: 12),
-              const Text('Your Sepay payment has been verified. The kitchen is preparing your order.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.subText, height: 1.4)),
+              const Text(
+                  'Your Sepay payment has been verified. The kitchen is preparing your order.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.subText, height: 1.4)),
               const Spacer(),
-              AppButton(label: 'Track Order', onPressed: () => Navigator.pushReplacementNamed(context, OrderDetailScreen.routeName)),
+              AppButton(
+                  label: 'Track Order',
+                  onPressed: () => Navigator.pushReplacementNamed(
+                      context, OrderDetailScreen.routeName)),
             ],
           ),
         ),

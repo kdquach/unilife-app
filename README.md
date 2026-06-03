@@ -12,6 +12,20 @@ flutter pub get
 flutter run
 ```
 
+## Kết nối backend
+
+API base URL được cấu hình qua biến môi trường `API_BASE_URL` khi chạy app:
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000/api/v1
+```
+
+Gợi ý:
+
+- Android emulator: `http://10.0.2.2:5000/api/v1`
+- iOS simulator / web local: `http://localhost:5000/api/v1`
+- Thiết bị thật: dùng IP LAN của máy chạy backend (VD `http://192.168.1.10:5000/api/v1`)
+
 Nếu bạn giải nén vào một thư mục chưa có native folders Android/iOS, chạy:
 
 ```bash

@@ -4,8 +4,10 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../models/food.dart';
 import '../../services/app_state.dart';
+import '../../services/auth_storage.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/status_badge.dart';
+import '../auth/login_screen.dart';
 import '../cart/cart_screen.dart';
 
 class FoodDetailScreen extends StatefulWidget {
@@ -22,11 +24,20 @@ class FoodDetailScreen extends StatefulWidget {
 class _FoodDetailScreenState extends State<FoodDetailScreen> {
   int quantity = 1;
 
-  void _addToCart({bool openCart = false}) {
+  Future<void> _addToCart({bool openCart = false}) async {
     if (!widget.food.canAddToCart) return;
     AppState.instance.addToCart(widget.food, quantity: quantity);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${widget.food.name} added to cart')));
-    if (openCart) Navigator.pushNamed(context, CartScreen.routeName);
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${widget.food.name} added to cart')));
+    if (openCart) {
+      final token = await AuthStorage.getToken();
+      if (!mounted) return;
+      if (token == null) {
+        Navigator.pushNamed(context, LoginScreen.routeName);
+        return;
+      }
+      Navigator.pushNamed(context, CartScreen.routeName);
+    }
   }
 
   @override
@@ -41,7 +52,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
             alignment: Alignment.center,
             child: Text(
               food.isMenuFood ? 'MEAL' : food.category.toUpperCase(),
-              style: const TextStyle(color: AppColors.primary, fontSize: 44, fontWeight: FontWeight.w900),
+              style: const TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 44,
+                  fontWeight: FontWeight.w900),
             ),
           ),
           SafeArea(
@@ -69,7 +83,9 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Text(food.name, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+                          child: Text(food.name,
+                              style: const TextStyle(
+                                  fontSize: 28, fontWeight: FontWeight.w900)),
                         ),
                         StatusBadge(label: food.typeLabel),
                       ],
@@ -77,29 +93,58 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                     const SizedBox(height: 8),
                     Text(
                       CurrencyFormatter.vnd(food.price),
-                      style: const TextStyle(color: AppColors.primary, fontSize: 22, fontWeight: FontWeight.w900),
+                      style: const TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900),
                     ),
                     const SizedBox(height: 26),
-                    _InfoRow(label: food.isMenuFood ? 'Menu session' : 'Category', value: food.isMenuFood ? '${food.menuDateLabel} ${food.mealType}' : food.category),
+                    _InfoRow(
+                        label: food.isMenuFood ? 'Menu session' : 'Category',
+                        value: food.isMenuFood
+                            ? '${food.menuDateLabel} ${food.mealType}'
+                            : food.category),
                     _InfoRow(
                       label: food.isMenuFood ? 'Remaining' : 'Stock status',
-                      value: food.isMenuFood ? '${food.remainingServings ?? 0} servings' : food.statusLabel,
-                      valueColor: food.canAddToCart ? AppColors.success : AppColors.error,
+                      value: food.isMenuFood
+                          ? '${food.remainingServings ?? 0} servings'
+                          : food.statusLabel,
+                      valueColor: food.canAddToCart
+                          ? AppColors.success
+                          : AppColors.error,
                     ),
-                    _InfoRow(label: 'Rating', value: '⭐ ${food.rating.toStringAsFixed(1)}'),
+                    _InfoRow(
+                        label: 'Rating',
+                        value: '⭐ ${food.rating.toStringAsFixed(1)}'),
                     const SizedBox(height: 22),
-                    Text(food.description, style: const TextStyle(color: AppColors.subText, height: 1.5)),
+                    Text(food.description,
+                        style: const TextStyle(
+                            color: AppColors.subText, height: 1.5)),
                     const SizedBox(height: 32),
                     Row(
                       children: [
-                        const Expanded(child: Text('Quantity', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900))),
+                        const Expanded(
+                            child: Text('Quantity',
+                                style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900))),
                         Container(
-                          decoration: BoxDecoration(color: AppColors.muted, borderRadius: BorderRadius.circular(16)),
+                          decoration: BoxDecoration(
+                              color: AppColors.muted,
+                              borderRadius: BorderRadius.circular(16)),
                           child: Row(
                             children: [
-                              IconButton(onPressed: quantity > 1 ? () => setState(() => quantity--) : null, icon: const Icon(Icons.remove)),
-                              Text('$quantity', style: const TextStyle(fontWeight: FontWeight.w900)),
-                              IconButton(onPressed: () => setState(() => quantity++), icon: const Icon(Icons.add)),
+                              IconButton(
+                                  onPressed: quantity > 1
+                                      ? () => setState(() => quantity--)
+                                      : null,
+                                  icon: const Icon(Icons.remove)),
+                              Text('$quantity',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w900)),
+                              IconButton(
+                                  onPressed: () => setState(() => quantity++),
+                                  icon: const Icon(Icons.add)),
                             ],
                           ),
                         ),
@@ -109,13 +154,27 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                     if (food.isMenuFood)
                       Row(
                         children: [
-                          Expanded(child: AppButton(label: 'Add Cart', secondary: true, onPressed: food.canAddToCart ? () => _addToCart() : null)),
+                          Expanded(
+                              child: AppButton(
+                                  label: 'Add Cart',
+                                  secondary: true,
+                                  onPressed: food.canAddToCart
+                                      ? () => _addToCart()
+                                      : null)),
                           const SizedBox(width: 12),
-                          Expanded(child: AppButton(label: 'Order Now', onPressed: food.canAddToCart ? () => _addToCart(openCart: true) : null)),
+                          Expanded(
+                              child: AppButton(
+                                  label: 'Order Now',
+                                  onPressed: food.canAddToCart
+                                      ? () => _addToCart(openCart: true)
+                                      : null)),
                         ],
                       )
                     else
-                      AppButton(label: 'Add to Cart', onPressed: food.canAddToCart ? () => _addToCart() : null),
+                      AppButton(
+                          label: 'Add to Cart',
+                          onPressed:
+                              food.canAddToCart ? () => _addToCart() : null),
                   ],
                 ),
               );
@@ -140,8 +199,13 @@ class _InfoRow extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: const TextStyle(color: AppColors.subText))),
-          Text(value, style: TextStyle(color: valueColor ?? AppColors.text, fontWeight: FontWeight.w800)),
+          Expanded(
+              child: Text(label,
+                  style: const TextStyle(color: AppColors.subText))),
+          Text(value,
+              style: TextStyle(
+                  color: valueColor ?? AppColors.text,
+                  fontWeight: FontWeight.w800)),
         ],
       ),
     );
