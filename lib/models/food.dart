@@ -68,6 +68,48 @@ class Food {
     );
   }
 
+  /// Parse từ JSON của MenuScheduleItem
+  factory Food.fromMenuScheduleItemJson(Map<String, dynamic> json) {
+    final menuScheduleItemId =
+        json['_id']?.toString() ?? json['menuScheduleItemId']?.toString() ?? '';
+    final remainingCount = (json['remainingCount'] as num? ?? 0).toInt();
+    final isActive = json['isActive'] as bool? ?? true;
+
+    final foodMap = json['foodId'] as Map<String, dynamic>? ?? {};
+    final foodId =
+        foodMap['_id']?.toString() ?? foodMap['foodId']?.toString() ?? '';
+    final name = foodMap['name'] as String? ?? '';
+    final description = foodMap['description'] as String? ?? '';
+    final price = ((foodMap['price'] as num?) ?? 0).toInt();
+
+    // Lấy tên danh mục từ populate
+    final categoryRaw = foodMap['categoryId'];
+    final categoryName = categoryRaw is Map<String, dynamic>
+        ? (categoryRaw['name'] as String? ?? '')
+        : '';
+
+    // Xác định status cho MenuFood
+    FoodStatus status = FoodStatus.available;
+    if (!isActive || remainingCount <= 0) {
+      status = FoodStatus.soldOut;
+    }
+
+    return Food(
+      id: foodId,
+      menuScheduleItemId: menuScheduleItemId,
+      name: name,
+      category: categoryName,
+      description: description,
+      price: price,
+      kind: FoodKind.menuFood,
+      status: status,
+      remainingServings: remainingCount,
+      mealType: 'Lunch', // Mặc định do backend chưa chia session
+      menuDateLabel: 'Today', // Mặc định
+    );
+  }
+
+
   bool get isMenuFood => kind == FoodKind.menuFood;
   bool get isAlwaysAvailable => kind == FoodKind.alwaysAvailable;
   bool get canAddToCart =>

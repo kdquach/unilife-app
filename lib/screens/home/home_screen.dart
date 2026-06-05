@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../../data/sample_data.dart';
 import '../../models/food.dart';
 import '../../services/api_client.dart';
 import '../../services/app_state.dart';
@@ -23,24 +22,44 @@ class _HomeScreenState extends State<HomeScreen> {
   final FoodService _foodService = FoodService(ApiClient());
 
   List<Food> _regularFoods = [];
+  Food? _menuFood;
   bool _isLoadingRegular = true;
+  bool _isLoadingMenu = true;
 
   @override
   void initState() {
     super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
     _loadRegularFoods();
+    _loadMenuFoods();
   }
 
   Future<void> _loadRegularFoods() async {
-    setState(() => _isLoadingRegular = true);
+    if (mounted) setState(() => _isLoadingRegular = true);
     try {
       final foods = await _foodService.getAlwaysAvailableFoods();
       if (mounted) setState(() => _regularFoods = foods.take(2).toList());
     } catch (_) {
-      // Silently fail on home — user can open Always Available screen to retry
       if (mounted) setState(() => _regularFoods = []);
     } finally {
       if (mounted) setState(() => _isLoadingRegular = false);
+    }
+  }
+
+  Future<void> _loadMenuFoods() async {
+    if (mounted) setState(() => _isLoadingMenu = true);
+    try {
+      final foods = await _foodService.getTodayMenuFoods();
+      if (mounted) {
+        setState(() => _menuFood = foods.isNotEmpty ? foods.first : null);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _menuFood = null);
+    } finally {
+      if (mounted) setState(() => _isLoadingMenu = false);
     }
   }
 
@@ -56,10 +75,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final menuFood = SampleData.menuFoods.first;
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: _loadRegularFoods,
+        onRefresh: _loadData,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
           children: [
@@ -99,10 +117,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 action: 'See all',
                 onActionTap: () =>
                     Navigator.pushNamed(context, TodayMenuScreen.routeName)),
-            MenuFoodCard(
-                food: menuFood,
-                onTap: () => _openDetail(menuFood),
-                onAdd: () => _add(menuFood)),
+            _buildTodayMenuPreview(),
+
             const SizedBox(height: 24),
             SectionTitle(
                 title: 'Always Available',
@@ -151,5 +167,35 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
+
+  Widget _buildTodayMenuPreview() {
+    if (_isLoadingMenu) {
+      return const SizedBox(
+        height: 120,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_menuFood == null) {
+      return const Card(
+        margin: EdgeInsets.zero,
+        elevation: 0,
+        color: AppColors.background,
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: Center(
+            child: Text('No menu foods available today',
+                style: TextStyle(color: AppColors.subText)),
+          ),
+        ),
+      );
+    }
+
+    return MenuFoodCard(
+        food: _menuFood!,
+        onTap: () => _openDetail(_menuFood!),
+        onAdd: _menuFood!.canAddToCart ? () => _add(_menuFood!) : null);
+  }
 }
+
 

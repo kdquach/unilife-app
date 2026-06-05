@@ -11,6 +11,7 @@ import '../screens/food/food_detail_screen.dart';
 import '../screens/home/main_shell.dart';
 import '../screens/menu/always_available_screen.dart';
 import '../screens/menu/today_menu_screen.dart';
+import '../screens/menu/weekly_menu_screen.dart';
 import '../screens/notification/notification_detail_screen.dart';
 import '../screens/notification/notifications_screen.dart';
 import '../screens/order/order_detail_screen.dart';
@@ -43,8 +44,11 @@ class AppRoutes {
         return _route(const MainShell());
       case TodayMenuScreen.routeName:
         return _route(const TodayMenuScreen());
+      case WeeklyMenuScreen.routeName:
+        return _route(const WeeklyMenuScreen());
       case AlwaysAvailableScreen.routeName:
         return _route(const AlwaysAvailableScreen());
+
       case FoodDetailScreen.routeName:
         return _route(FoodDetailScreen(food: settings.arguments as Food));
       case CartScreen.routeName:
