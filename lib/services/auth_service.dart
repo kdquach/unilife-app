@@ -42,4 +42,8 @@ class AuthService {
   Future<Map<String, dynamic>> logout({required String token}) {
     return _apiClient.postJson('/auth/logout', {}, token: token);
   }
+
+  Future<Map<String, dynamic>> getProfile({required String token}) {
+    return _apiClient.getJson('/users/profile', token: token);
+  }
 }
