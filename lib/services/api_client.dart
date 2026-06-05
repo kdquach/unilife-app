@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 class ApiClient {
@@ -7,12 +8,17 @@ class ApiClient {
 
   final http.Client _client;
 
-  // Android emulator: http://10.0.2.2:5000/api/v1
-  // iOS simulator / web local: http://localhost:5000/api/v1
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:5000/api/v1',
-  );
+  /// Tự động chọn base URL phù hợp với môi trường:
+  ///   - Web (Chrome)        → http://localhost:5000/api/v1
+  ///   - Android Emulator    → http://10.0.2.2:5000/api/v1
+  ///   - Có thể override qua --dart-define=API_BASE_URL=...
+  static String get baseUrl {
+    const override = String.fromEnvironment('API_BASE_URL');
+    if (override.isNotEmpty) return override;
+    return kIsWeb
+        ? 'http://localhost:5000/api/v1'
+        : 'http://10.0.2.2:5000/api/v1';
+  }
 
   Future<Map<String, dynamic>> getJson(String path, {String? token}) async {
     final response = await _client.get(

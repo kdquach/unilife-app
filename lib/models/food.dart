@@ -33,6 +33,41 @@ class Food {
     this.rating = 4.8,
   });
 
+  /// Parse từ JSON trả về của API Backend
+  factory Food.fromJson(Map<String, dynamic> json) {
+    final isMenuItem = json['isMenuItem'] as bool? ?? false;
+    final isActive = json['isActive'] as bool? ?? true;
+    final stockQty = json['stockQuantity'] as int?;
+
+    // Xác định status từ isActive và stockQuantity
+    FoodStatus status;
+    if (!isActive) {
+      status = FoodStatus.outOfStock;
+    } else if (!isMenuItem && stockQty != null && stockQty <= 0) {
+      status = FoodStatus.outOfStock;
+    } else {
+      status = FoodStatus.available;
+    }
+
+    // Lấy tên danh mục từ populate (categoryId có thể là object hoặc null)
+    final categoryRaw = json['categoryId'];
+    final categoryName = categoryRaw is Map<String, dynamic>
+        ? (categoryRaw['name'] as String? ?? '')
+        : '';
+
+    return Food(
+      id: json['_id']?.toString() ?? json['foodId']?.toString() ?? '',
+      name: json['name'] as String? ?? '',
+      category: categoryName,
+      description: json['description'] as String? ?? '',
+      price: ((json['price'] as num?) ?? 0).toInt(),
+      kind: isMenuItem ? FoodKind.menuFood : FoodKind.alwaysAvailable,
+      status: status,
+      stockQuantity: stockQty,
+      rating: 4.8,
+    );
+  }
+
   bool get isMenuFood => kind == FoodKind.menuFood;
   bool get isAlwaysAvailable => kind == FoodKind.alwaysAvailable;
   bool get canAddToCart =>

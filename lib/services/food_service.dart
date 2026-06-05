@@ -1,4 +1,3 @@
-import '../data/sample_data.dart';
 import '../models/food.dart';
 import 'api_client.dart';
 
@@ -7,16 +6,22 @@ class FoodService {
 
   final ApiClient _apiClient;
 
-  // Mock methods for first UI build. Replace with API calls later.
-  Future<List<Food>> getTodayMenuFoods() async => SampleData.menuFoods;
-
-  Future<List<Food>> getAlwaysAvailableFoods() async => SampleData.regularFoods;
-
-  Future<Map<String, dynamic>> fetchTodayMenuFromApi({String? token}) {
-    return _apiClient.getJson('/menu-schedules/today', token: token);
+  /// Lấy danh sách món ăn bán hàng ngày từ API (isMenuItem: false)
+  Future<List<Food>> getAlwaysAvailableFoods({String? token}) async {
+    final response = await _apiClient.getJson(
+      '/foods?kind=alwaysAvailable&isActive=true',
+      token: token,
+    );
+    final data = response['data'];
+    final items = data is Map ? data['items'] : null;
+    if (items == null || items is! List) return [];
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(Food.fromJson)
+        .toList();
   }
 
-  Future<Map<String, dynamic>> fetchRegularFoodsFromApi({String? token}) {
-    return _apiClient.getJson('/foods?kind=alwaysAvailable', token: token);
-  }
+  // Mock - sẽ thay bằng API sau khi hoàn thiện Today Menu feature
+  Future<List<Food>> getTodayMenuFoods() async => [];
 }
+
