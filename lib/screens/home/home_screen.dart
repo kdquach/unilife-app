@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../models/food.dart';
+import '../../models/food_category.dart';
 import '../../services/api_client.dart';
 import '../../services/app_state.dart';
 import '../../services/food_service.dart';
@@ -22,9 +23,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final FoodService _foodService = FoodService(ApiClient());
 
   List<Food> _regularFoods = [];
+  List<FoodCategory> _categories = [];
   Food? _menuFood;
   bool _isLoadingRegular = true;
   bool _isLoadingMenu = true;
+  bool _isLoadingCategories = true;
 
   @override
   void initState() {
@@ -35,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadData() async {
     _loadRegularFoods();
     _loadMenuFoods();
+    _loadCategories();
   }
 
   Future<void> _loadRegularFoods() async {
@@ -60,6 +64,18 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() => _menuFood = null);
     } finally {
       if (mounted) setState(() => _isLoadingMenu = false);
+    }
+  }
+
+  Future<void> _loadCategories() async {
+    if (mounted) setState(() => _isLoadingCategories = true);
+    try {
+      final categories = await _foodService.getFoodCategories();
+      if (mounted) setState(() => _categories = categories);
+    } catch (_) {
+      if (mounted) setState(() => _categories = []);
+    } finally {
+      if (mounted) setState(() => _isLoadingCategories = false);
     }
   }
 
@@ -92,6 +108,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     prefixIcon: Icon(Icons.search),
                     hintText: 'Search food, drinks, snacks...')),
             const SizedBox(height: 22),
+            _buildCategoriesSection(),
+            const SizedBox(height: 22),
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -118,7 +136,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 onActionTap: () =>
                     Navigator.pushNamed(context, TodayMenuScreen.routeName)),
             _buildTodayMenuPreview(),
-
             const SizedBox(height: 24),
             SectionTitle(
                 title: 'Always Available',
@@ -131,6 +148,81 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  Widget _buildCategoriesSection() {
+    if (_isLoadingCategories) {
+      return const SizedBox(
+        height: 50,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_categories.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Categories',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 50,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _categories.length,
+            itemBuilder: (context, index) {
+              final cat = _categories[index];
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.pushNamed(
+                      context,
+                      AlwaysAvailableScreen.routeName,
+                      arguments: cat.name,
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      cat.name,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.text,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
 
   Widget _buildAlwaysAvailablePreview() {
     if (_isLoadingRegular) {
@@ -197,5 +289,3 @@ class _HomeScreenState extends State<HomeScreen> {
         onAdd: _menuFood!.canAddToCart ? () => _add(_menuFood!) : null);
   }
 }
-
-

@@ -1,4 +1,5 @@
 import '../models/food.dart';
+import '../models/food_category.dart';
 import '../models/menu_schedule.dart';
 import 'api_client.dart';
 
@@ -69,6 +70,28 @@ class FoodService {
       return [];
     }
   }
+
+  /// Lấy danh sách danh mục món ăn từ API
+  Future<List<FoodCategory>> getFoodCategories({String? token}) async {
+    try {
+      final response = await _apiClient.getJson(
+        '/food-categories?isActive=true',
+        token: token,
+      );
+      final data = response['data'];
+      final items = data is Map ? data['items'] : null;
+      if (items == null || items is! List) return [];
+
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(FoodCategory.fromJson)
+          .toList();
+    } catch (e) {
+      print('Error in getFoodCategories: $e');
+      return [];
+    }
+  }
 }
+
 
 

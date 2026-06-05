@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../models/food.dart';
+import '../../models/food_category.dart';
 import '../../services/api_client.dart';
 import '../../services/app_state.dart';
 import '../../services/food_service.dart';
@@ -22,9 +23,11 @@ class _TodayMenuScreenState extends State<TodayMenuScreen> {
   final FoodService _foodService = FoodService(ApiClient());
 
   List<Food> _foods = [];
+  List<FoodCategory> _categories = [];
   bool _isLoading = true;
   String? _error;
   String _selectedMeal = 'Lunch';
+  String _selectedCategoryName = 'All';
 
   @override
   void initState() {
@@ -38,8 +41,16 @@ class _TodayMenuScreenState extends State<TodayMenuScreen> {
       _error = null;
     });
     try {
-      final foods = await _foodService.getTodayMenuFoods();
-      if (mounted) setState(() => _foods = foods);
+      final results = await Future.wait([
+        _foodService.getTodayMenuFoods(),
+        _foodService.getFoodCategories(),
+      ]);
+      if (mounted) {
+        setState(() {
+          _foods = results[0] as List<Food>;
+          _categories = results[1] as List<FoodCategory>;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -58,8 +69,13 @@ class _TodayMenuScreenState extends State<TodayMenuScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Lọc món theo bữa ăn đã chọn (mặc định các món trong DB là 'Lunch')
-    final filteredFoods = _foods.where((f) => f.mealType == _selectedMeal).toList();
+    // Lọc kép: Lọc theo meal type (Breakfast/Lunch/Dinner) + Lọc theo Category
+    final filteredFoods = _foods.where((f) {
+      final matchesMeal = f.mealType == _selectedMeal;
+      final matchesCategory = _selectedCategoryName == 'All' ||
+          f.category.toLowerCase() == _selectedCategoryName.toLowerCase();
+      return matchesMeal && matchesCategory;
+    }).toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Today Menu')),
@@ -84,14 +100,16 @@ class _TodayMenuScreenState extends State<TodayMenuScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.wifi_off_rounded, size: 56, color: AppColors.subText),
+            const Icon(Icons.wifi_off_rounded,
+                size: 56, color: AppColors.subText),
             const SizedBox(height: 16),
             const Text(
               'Could not load today menu',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
-            Text(_error!, textAlign: TextAlign.center,
+            Text(_error!,
+                textAlign: TextAlign.center,
                 style: const TextStyle(color: AppColors.subText)),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -110,8 +128,11 @@ class _TodayMenuScreenState extends State<TodayMenuScreen> {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(24),
       children: [
-        const Text('Food sold by menu schedule', style: TextStyle(color: AppColors.subText)),
+        const Text('Food sold by menu schedule',
+            style: TextStyle(color: AppColors.subText)),
         const SizedBox(height: 16),
+
+        // Lọc theo Bữa ăn (Breakfast, Lunch, Dinner)
         Row(
           children: [
             _buildMealChip('Breakfast'),
@@ -121,14 +142,65 @@ class _TodayMenuScreenState extends State<TodayMenuScreen> {
             _buildMealChip('Dinner'),
           ],
         ),
+        const SizedBox(height: 16),
+
+        // Thanh chọn danh mục cuộn ngang không chứa icon
+        SizedBox(
+          height: 44,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _categories.length + 1,
+            itemBuilder: (context, index) {
+              final isAll = index == 0;
+              final categoryName = isAll ? 'All' : _categories[index - 1].name;
+              final isSelected =
+                  _selectedCategoryName.toLowerCase() == categoryName.toLowerCase();
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(categoryName),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _selectedCategoryName = categoryName;
+                      });
+                    }
+                  },
+                  backgroundColor: Colors.white,
+                  selectedColor: AppColors.primary,
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : AppColors.text,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(
+                      color: isSelected ? AppColors.primary : AppColors.border,
+                      width: 1,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
         const SizedBox(height: 20),
+
         const AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Menu Food', style: TextStyle(color: AppColors.primary, fontSize: 16, fontWeight: FontWeight.w900)),
+              Text('Menu Food',
+                  style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900)),
               SizedBox(height: 8),
-              Text('Uses menuScheduleItemId, has remaining servings, can be sold out by meal session.', style: TextStyle(color: AppColors.subText)),
+              Text(
+                  'Uses menuScheduleItemId, has remaining servings, can be sold out by meal session.',
+                  style: TextStyle(color: AppColors.subText)),
             ],
           ),
         ),
@@ -139,10 +211,12 @@ class _TodayMenuScreenState extends State<TodayMenuScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.no_meals_outlined, size: 56, color: AppColors.subText),
+                const Icon(Icons.no_meals_outlined,
+                    size: 56, color: AppColors.subText),
                 const SizedBox(height: 16),
                 Text(
-                  'No foods scheduled for $_selectedMeal',
+                  'No foods scheduled for $_selectedMeal in $_selectedCategoryName',
+                  textAlign: TextAlign.center,
                   style: const TextStyle(color: AppColors.subText),
                 ),
               ],
@@ -174,8 +248,11 @@ class _TodayMenuScreenState extends State<TodayMenuScreen> {
       child: Chip(
         label: Text(meal),
         backgroundColor: isSelected ? AppColors.primary : Colors.white,
-        labelStyle: TextStyle(color: isSelected ? Colors.white : AppColors.text, fontWeight: FontWeight.w800),
-        side: BorderSide(color: isSelected ? AppColors.primary : AppColors.border),
+        labelStyle: TextStyle(
+            color: isSelected ? Colors.white : AppColors.text,
+            fontWeight: FontWeight.w800),
+        side:
+            BorderSide(color: isSelected ? AppColors.primary : AppColors.border),
       ),
     );
   }

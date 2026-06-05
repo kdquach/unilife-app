@@ -47,7 +47,10 @@ class AppRoutes {
       case WeeklyMenuScreen.routeName:
         return _route(const WeeklyMenuScreen());
       case AlwaysAvailableScreen.routeName:
-        return _route(const AlwaysAvailableScreen());
+        final categoryName = settings.arguments as String?;
+        return _route(AlwaysAvailableScreen(preselectedCategoryName: categoryName));
+
+
 
       case FoodDetailScreen.routeName:
         return _route(FoodDetailScreen(food: settings.arguments as Food));
