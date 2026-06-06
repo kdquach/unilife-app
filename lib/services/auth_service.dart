@@ -61,4 +61,16 @@ class AuthService {
       token: token,
     );
   }
+
+  Future<Map<String, dynamic>> uploadAvatar({
+    required String filePath,
+    required String token,
+  }) {
+    return _apiClient.uploadFile(
+      '/users/profile/avatar',
+      'avatar',
+      filePath,
+      token: token,
+    );
+  }
 }

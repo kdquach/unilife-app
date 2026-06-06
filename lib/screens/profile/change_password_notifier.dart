@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
@@ -7,8 +8,8 @@ class ChangePasswordNotifier extends AsyncNotifier<void> {
   final _authService = AuthService(ApiClient());
 
   @override
-  Future<void> build() async {
-    // Return void for idle state
+  FutureOr<void> build() {
+    // Return void synchronously for idle state
   }
 
   Future<bool> changePassword({

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 class ApiClient {
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
@@ -37,6 +38,43 @@ class ApiClient {
       headers: _headers(token),
       body: jsonEncode(body),
     );
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> uploadFile(
+    String path,
+    String fieldName,
+    String filePath, {
+    String? token,
+  }) async {
+    final uri = Uri.parse('$baseUrl$path');
+    final request = http.MultipartRequest('POST', uri);
+
+    final extension = filePath.split('.').last.toLowerCase();
+    MediaType contentType;
+    if (extension == 'png') {
+      contentType = MediaType('image', 'png');
+    } else if (extension == 'webp') {
+      contentType = MediaType('image', 'webp');
+    } else if (extension == 'gif') {
+      contentType = MediaType('image', 'gif');
+    } else {
+      contentType = MediaType('image', 'jpeg');
+    }
+
+    final file = await http.MultipartFile.fromPath(
+      fieldName,
+      filePath,
+      contentType: contentType,
+    );
+    request.files.add(file);
+
+    if (token != null) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+
+    final streamedResponse = await _client.send(request);
+    final response = await http.Response.fromStream(streamedResponse);
     return _decode(response);
   }
 
