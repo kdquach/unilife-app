@@ -15,6 +15,7 @@ class Food {
   final int? stockQuantity;
   final String? mealType;
   final String? menuDateLabel;
+  final String? imageUrl;
   final double rating;
 
   const Food({
@@ -30,16 +31,49 @@ class Food {
     this.stockQuantity,
     this.mealType,
     this.menuDateLabel,
+    this.imageUrl,
     this.rating = 4.8,
   });
 
-  /// Parse từ JSON trả về của API Backend
+  Food copyWith({
+    String? id,
+    String? menuScheduleItemId,
+    String? name,
+    String? category,
+    String? description,
+    int? price,
+    FoodKind? kind,
+    FoodStatus? status,
+    int? remainingServings,
+    int? stockQuantity,
+    String? mealType,
+    String? menuDateLabel,
+    String? imageUrl,
+    double? rating,
+  }) {
+    return Food(
+      id: id ?? this.id,
+      menuScheduleItemId: menuScheduleItemId ?? this.menuScheduleItemId,
+      name: name ?? this.name,
+      category: category ?? this.category,
+      description: description ?? this.description,
+      price: price ?? this.price,
+      kind: kind ?? this.kind,
+      status: status ?? this.status,
+      remainingServings: remainingServings ?? this.remainingServings,
+      stockQuantity: stockQuantity ?? this.stockQuantity,
+      mealType: mealType ?? this.mealType,
+      menuDateLabel: menuDateLabel ?? this.menuDateLabel,
+      imageUrl: imageUrl ?? this.imageUrl,
+      rating: rating ?? this.rating,
+    );
+  }
+
   factory Food.fromJson(Map<String, dynamic> json) {
     final isMenuItem = json['isMenuItem'] as bool? ?? false;
     final isActive = json['isActive'] as bool? ?? true;
-    final stockQty = json['stockQuantity'] as int?;
+    final stockQty = (json['stockQuantity'] as num?)?.toInt();
 
-    // Xác định status từ isActive và stockQuantity
     FoodStatus status;
     if (!isActive) {
       status = FoodStatus.outOfStock;
@@ -49,7 +83,6 @@ class Food {
       status = FoodStatus.available;
     }
 
-    // Lấy tên danh mục từ populate (categoryId có thể là object hoặc null)
     final categoryRaw = json['categoryId'];
     final categoryName = categoryRaw is Map<String, dynamic>
         ? (categoryRaw['name'] as String? ?? '')
@@ -64,11 +97,11 @@ class Food {
       kind: isMenuItem ? FoodKind.menuFood : FoodKind.alwaysAvailable,
       status: status,
       stockQuantity: stockQty,
+      imageUrl: json['imageUrl'] as String?,
       rating: 4.8,
     );
   }
 
-  /// Parse từ JSON của MenuScheduleItem
   factory Food.fromMenuScheduleItemJson(Map<String, dynamic> json) {
     final menuScheduleItemId =
         json['_id']?.toString() ?? json['menuScheduleItemId']?.toString() ?? '';
@@ -82,13 +115,11 @@ class Food {
     final description = foodMap['description'] as String? ?? '';
     final price = ((foodMap['price'] as num?) ?? 0).toInt();
 
-    // Lấy tên danh mục từ populate
     final categoryRaw = foodMap['categoryId'];
     final categoryName = categoryRaw is Map<String, dynamic>
         ? (categoryRaw['name'] as String? ?? '')
         : '';
 
-    // Xác định status cho MenuFood
     FoodStatus status = FoodStatus.available;
     if (!isActive || remainingCount <= 0) {
       status = FoodStatus.soldOut;
@@ -104,17 +135,20 @@ class Food {
       kind: FoodKind.menuFood,
       status: status,
       remainingServings: remainingCount,
-      mealType: 'Lunch', // Mặc định do backend chưa chia session
-      menuDateLabel: 'Today', // Mặc định
+      mealType: 'Lunch',
+      menuDateLabel: 'Today',
+      imageUrl: foodMap['imageUrl'] as String?,
     );
   }
 
-
   bool get isMenuFood => kind == FoodKind.menuFood;
   bool get isAlwaysAvailable => kind == FoodKind.alwaysAvailable;
+  bool get hasImage => imageUrl != null && imageUrl!.isNotEmpty;
   bool get canAddToCart =>
       status == FoodStatus.available &&
-      ((isMenuFood && (remainingServings ?? 0) > 0) ||
+      ((isMenuFood &&
+              menuScheduleItemId != null &&
+              (remainingServings ?? 0) > 0) ||
           (isAlwaysAvailable && (stockQuantity ?? 0) > 0));
 
   String get typeLabel => isMenuFood ? 'Menu Food' : 'Always Available';

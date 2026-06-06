@@ -181,7 +181,8 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
                 Text(
                   'Menus are draft or not published yet.',
                   style: TextStyle(
-                      color: AppColors.subText.withOpacity(0.6), fontSize: 12),
+                      color: AppColors.subText.withValues(alpha: 0.6),
+                      fontSize: 12),
                 ),
               ],
             ),
@@ -229,7 +230,7 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
               color: isSelected
                   ? AppColors.primary
                   : isToday
-                      ? AppColors.primarySoft.withOpacity(0.3)
+                      ? AppColors.primarySoft.withValues(alpha: 0.3)
                       : Colors.white,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(

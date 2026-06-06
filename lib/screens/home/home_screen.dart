@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../core/utils/currency_formatter.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/food.dart';
 import '../../models/food_category.dart';
@@ -7,10 +10,12 @@ import '../../services/api_client.dart';
 import '../../services/app_state.dart';
 import '../../services/food_service.dart';
 import '../../widgets/food_cards.dart';
+import '../../widgets/food_image_placeholder.dart';
 import '../../widgets/section_title.dart';
 import '../food/food_detail_screen.dart';
 import '../menu/always_available_screen.dart';
 import '../menu/today_menu_screen.dart';
+import 'main_shell.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,18 +26,32 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final FoodService _foodService = FoodService(ApiClient());
+  final TextEditingController _searchController = TextEditingController();
 
   List<Food> _regularFoods = [];
   List<FoodCategory> _categories = [];
+  List<Food> _searchResults = [];
   Food? _menuFood;
+  Timer? _searchDebounce;
+  String _searchQuery = '';
+  String? _searchError;
+  int _searchRequestId = 0;
   bool _isLoadingRegular = true;
   bool _isLoadingMenu = true;
   bool _isLoadingCategories = true;
+  bool _isSearching = false;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -79,14 +98,69 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    final query = value.trim();
+
+    if (query.isEmpty) {
+      _searchRequestId++;
+      setState(() {
+        _searchQuery = '';
+        _searchResults = [];
+        _searchError = null;
+        _isSearching = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _searchQuery = query;
+      _searchError = null;
+      _isSearching = true;
+    });
+
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 350),
+      () => _searchFoods(query),
+    );
+  }
+
+  Future<void> _searchFoods(String query) async {
+    final requestId = ++_searchRequestId;
+    try {
+      final foods = await _foodService.searchFoods(keyword: query);
+      if (!mounted || requestId != _searchRequestId) return;
+      setState(() {
+        _searchResults = foods;
+        _searchError = null;
+      });
+    } catch (e) {
+      if (!mounted || requestId != _searchRequestId) return;
+      setState(() {
+        _searchResults = [];
+        _searchError = e.toString();
+      });
+    } finally {
+      if (mounted && requestId == _searchRequestId) {
+        setState(() => _isSearching = false);
+      }
+    }
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    _onSearchChanged('');
+  }
+
   void _openDetail(Food food) {
     Navigator.pushNamed(context, FoodDetailScreen.routeName, arguments: food);
   }
 
   void _add(Food food) {
     AppState.instance.addToCart(food);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('${food.name} added to cart')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${food.name} added to cart')));
   }
 
   @override
@@ -97,55 +171,168 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
           children: [
-            const Text('Good morning, Duy',
-                style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
+            const Text(
+              'Good morning, Duy',
+              style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900),
+            ),
             const SizedBox(height: 4),
-            const Text('Choose today meal or daily snacks',
-                style: TextStyle(color: AppColors.subText)),
+            const Text(
+              'Choose today meal or daily snacks',
+              style: TextStyle(color: AppColors.subText),
+            ),
             const SizedBox(height: 22),
-            const TextField(
-                decoration: InputDecoration(
-                    prefixIcon: Icon(Icons.search),
-                    hintText: 'Search food, drinks, snacks...')),
-            const SizedBox(height: 22),
-            _buildCategoriesSection(),
-            const SizedBox(height: 22),
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(28)),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Today menu is ready',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900)),
-                  SizedBox(height: 8),
-                  Text('Order main meals and add drinks or snacks.',
-                      style: TextStyle(color: Colors.white)),
-                ],
+            TextField(
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: _clearSearch,
+                        icon: const Icon(Icons.close),
+                      ),
+                hintText: 'Search food, drinks, snacks...',
               ),
             ),
-            const SizedBox(height: 26),
-            SectionTitle(
+            const SizedBox(height: 22),
+            if (_searchQuery.isNotEmpty) ...[
+              _buildSearchResults(),
+            ] else ...[
+              _buildCategoriesSection(),
+              const SizedBox(height: 22),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Today menu is ready',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Order main meals and add drinks or snacks.',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 26),
+              SectionTitle(
                 title: 'Today Menu',
                 action: 'See all',
                 onActionTap: () =>
-                    Navigator.pushNamed(context, TodayMenuScreen.routeName)),
-            _buildTodayMenuPreview(),
-            const SizedBox(height: 24),
-            SectionTitle(
+                    Navigator.pushNamed(context, TodayMenuScreen.routeName),
+              ),
+              _buildTodayMenuPreview(),
+              const SizedBox(height: 24),
+              SectionTitle(
                 title: 'Always Available',
                 action: 'See all',
                 onActionTap: () => Navigator.pushNamed(
-                    context, AlwaysAvailableScreen.routeName)),
-            _buildAlwaysAvailablePreview(),
+                  context,
+                  AlwaysAvailableScreen.routeName,
+                ),
+              ),
+              _buildAlwaysAvailablePreview(),
+            ],
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSearchResults() {
+    if (_isSearching) {
+      return const SizedBox(
+        height: 180,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_searchError != null) {
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.wifi_off_rounded,
+              size: 42,
+              color: AppColors.subText,
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Could not search foods',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _searchError!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.subText),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_searchResults.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 48),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.search_off_rounded,
+              size: 52,
+              color: AppColors.subText,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No foods found for "$_searchQuery"',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.subText),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${_searchResults.length} result${_searchResults.length > 1 ? 's' : ''} for "$_searchQuery"',
+          style: const TextStyle(
+            color: AppColors.subText,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 14),
+        ..._searchResults.map(
+          (food) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _SearchFoodTile(
+              food: food,
+              onTap: () => _openDetail(food),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -182,8 +369,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () {
                     Navigator.pushNamed(
                       context,
-                      AlwaysAvailableScreen.routeName,
-                      arguments: cat.name,
+                      MainShell.routeName,
+                      arguments: {
+                        'tabIndex': 1,
+                        'categoryId': cat.id,
+                        'categoryName': cat.name,
+                        'todayOnly': true,
+                      },
                     );
                   },
                   borderRadius: BorderRadius.circular(20),
@@ -196,7 +388,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       border: Border.all(color: AppColors.border),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.02),
+                          color: Colors.black.withValues(alpha: 0.02),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -223,7 +415,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
   Widget _buildAlwaysAvailablePreview() {
     if (_isLoadingRegular) {
       return const SizedBox(
@@ -235,8 +426,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_regularFoods.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 16),
-        child: Text('No daily foods available',
-            style: TextStyle(color: AppColors.subText)),
+        child: Text(
+          'No daily foods available',
+          style: TextStyle(color: AppColors.subText),
+        ),
       );
     }
 
@@ -253,9 +446,10 @@ class _HomeScreenState extends State<HomeScreen> {
       itemBuilder: (_, index) {
         final food = _regularFoods[index];
         return RegularFoodCard(
-            food: food,
-            onTap: () => _openDetail(food),
-            onAdd: food.canAddToCart ? () => _add(food) : null);
+          food: food,
+          onTap: () => _openDetail(food),
+          onAdd: food.canAddToCart ? () => _add(food) : null,
+        );
       },
     );
   }
@@ -276,16 +470,95 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 24),
           child: Center(
-            child: Text('No menu foods available today',
-                style: TextStyle(color: AppColors.subText)),
+            child: Text(
+              'No menu foods available today',
+              style: TextStyle(color: AppColors.subText),
+            ),
           ),
         ),
       );
     }
 
     return MenuFoodCard(
-        food: _menuFood!,
-        onTap: () => _openDetail(_menuFood!),
-        onAdd: _menuFood!.canAddToCart ? () => _add(_menuFood!) : null);
+      food: _menuFood!,
+      onTap: () => _openDetail(_menuFood!),
+      onAdd: _menuFood!.canAddToCart ? () => _add(_menuFood!) : null,
+    );
+  }
+}
+
+class _SearchFoodTile extends StatelessWidget {
+  final Food food;
+  final VoidCallback onTap;
+
+  const _SearchFoodTile({required this.food, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final categoryLabel =
+        food.category.isEmpty ? food.typeLabel : food.category;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            FoodImagePlaceholder(food: food, size: 64, radius: 16),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    food.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    categoryLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.subText,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    CurrencyFormatter.vnd(food.price),
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Icon(Icons.chevron_right, color: AppColors.subText),
+          ],
+        ),
+      ),
+    );
   }
 }
