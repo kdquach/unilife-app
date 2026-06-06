@@ -73,4 +73,19 @@ class AuthService {
       token: token,
     );
   }
+
+  Future<Map<String, dynamic>> updateProfile({
+    required String fullName,
+    String? phone,
+    required String token,
+  }) {
+    return _apiClient.patchJson(
+      '/users/profile',
+      {
+        'fullName': fullName,
+        'phone': phone,
+      },
+      token: token,
+    );
+  }
 }
