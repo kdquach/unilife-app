@@ -31,6 +31,15 @@ class ApiClient {
     return _decode(response);
   }
 
+  Future<Map<String, dynamic>> patchJson(String path, Map<String, dynamic> body, {String? token}) async {
+    final response = await _client.patch(
+      Uri.parse('$baseUrl$path'),
+      headers: _headers(token),
+      body: jsonEncode(body),
+    );
+    return _decode(response);
+  }
+
   Map<String, String> _headers(String? token) {
     return {
       'Content-Type': 'application/json',

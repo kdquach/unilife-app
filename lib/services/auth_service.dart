@@ -46,4 +46,19 @@ class AuthService {
   Future<Map<String, dynamic>> getProfile({required String token}) {
     return _apiClient.getJson('/users/profile', token: token);
   }
+
+  Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String token,
+  }) {
+    return _apiClient.patchJson(
+      '/auth/change-password',
+      {
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      },
+      token: token,
+    );
+  }
 }
