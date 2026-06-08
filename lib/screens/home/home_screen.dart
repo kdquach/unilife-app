@@ -18,9 +18,7 @@ import '../menu/today_menu_screen.dart';
 import 'main_shell.dart';
 
 class HomeScreen extends StatefulWidget {
-  final ValueChanged<FoodCategory>? onCategorySelected;
-
-  const HomeScreen({super.key, this.onCategorySelected});
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -369,21 +367,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.only(right: 12),
                 child: InkWell(
                   onTap: () {
-                    final onCategorySelected = widget.onCategorySelected;
-                    if (onCategorySelected != null) {
-                      onCategorySelected(cat);
-                    } else {
-                      Navigator.pushNamed(
-                        context,
-                        MainShell.routeName,
-                        arguments: {
-                          'tabIndex': 1,
-                          'categoryId': cat.id,
-                          'categoryName': cat.name,
-                          'todayOnly': true,
-                        },
-                      );
-                    }
+                    Navigator.pushNamed(
+                      context,
+                      MainShell.routeName,
+                      arguments: {
+                        'tabIndex': 1,
+                        'categoryId': cat.id,
+                        'categoryName': cat.name,
+                        'todayOnly': true,
+                      },
+                    );
                   },
                   borderRadius: BorderRadius.circular(20),
                   child: Container(

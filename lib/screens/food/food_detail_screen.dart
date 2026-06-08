@@ -73,14 +73,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
           break;
         }
       }
-      if (scheduledFood == null) {
-        return detail.copyWith(
-          status: FoodStatus.comingSoon,
-          remainingServings: 0,
-          mealType: 'Menu',
-          menuDateLabel: 'Today',
-        );
-      }
+      if (scheduledFood == null) return detail;
       return _mergeMenuContext(detail, scheduledFood);
     } catch (_) {
       return detail;
