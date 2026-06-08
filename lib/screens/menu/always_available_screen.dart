@@ -100,8 +100,8 @@ class _AlwaysAvailableScreenState extends State<AlwaysAvailableScreen> {
     try {
       final foods = await _foodService.filterFoods(
         categoryId: _selectedCategoryId,
-        minPrice: _selectedMinPrice,
-        maxPrice: _selectedMaxPrice,
+        minPrice: _minPriceParam,
+        maxPrice: _maxPriceParam,
         sortBy: _sortBy,
         sortOrder: _sortOrder,
       );
@@ -149,6 +149,9 @@ class _AlwaysAvailableScreenState extends State<AlwaysAvailableScreen> {
               _selectedMaxPrice != _availableMaxPrice)) ||
       _sortBy != 'createdAt' ||
       _sortOrder != 'desc';
+
+  int? get _minPriceParam => _hasPriceRange ? _selectedMinPrice : null;
+  int? get _maxPriceParam => _hasPriceRange ? _selectedMaxPrice : null;
 
   void _open(Food food) =>
       Navigator.pushNamed(context, FoodDetailScreen.routeName, arguments: food);

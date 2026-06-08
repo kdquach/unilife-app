@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../models/food_category.dart';
 import '../../services/auth_storage.dart';
 import '../cart/cart_screen.dart';
 import '../auth/login_screen.dart';
@@ -31,23 +32,47 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   late int _index;
-  late final List<Widget> _screens;
+  late List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
     _index = widget.initialIndex;
-    _screens = [
-      const HomeScreen(),
+    _screens = _buildScreens(
+      menuCategoryId: widget.initialMenuCategoryId,
+      menuCategoryName: widget.initialMenuCategoryName,
+      menuTodayOnly: widget.initialMenuTodayOnly,
+    );
+  }
+
+  List<Widget> _buildScreens({
+    String? menuCategoryId,
+    String? menuCategoryName,
+    bool menuTodayOnly = false,
+  }) {
+    return [
+      HomeScreen(onCategorySelected: _openMenuCategory),
       MenuScreen(
-        preselectedCategoryId: widget.initialMenuCategoryId,
-        preselectedCategoryName: widget.initialMenuCategoryName,
-        preselectedTodayOnly: widget.initialMenuTodayOnly,
+        key: ValueKey('$menuCategoryId|$menuCategoryName|$menuTodayOnly'),
+        preselectedCategoryId: menuCategoryId,
+        preselectedCategoryName: menuCategoryName,
+        preselectedTodayOnly: menuTodayOnly,
       ),
       const CartScreen(showBackButton: false),
       const OrderListScreen(showBackButton: false),
       const ProfileScreen(),
     ];
+  }
+
+  void _openMenuCategory(FoodCategory category) {
+    setState(() {
+      _index = 1;
+      _screens = _buildScreens(
+        menuCategoryId: category.id,
+        menuCategoryName: category.name,
+        menuTodayOnly: true,
+      );
+    });
   }
 
   Future<void> _handleDestinationSelected(int value) async {
