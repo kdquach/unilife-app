@@ -73,7 +73,14 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
           break;
         }
       }
-      if (scheduledFood == null) return detail;
+      if (scheduledFood == null) {
+        return detail.copyWith(
+          status: FoodStatus.comingSoon,
+          remainingServings: 0,
+          mealType: 'Menu',
+          menuDateLabel: 'Today',
+        );
+      }
       return _mergeMenuContext(detail, scheduledFood);
     } catch (_) {
       return detail;
@@ -81,11 +88,16 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
   }
 
   Food _mergeMenuContext(Food detail, Food menuContext) {
+    final remainingServings = menuContext.remainingServings ?? 0;
+    final status = remainingServings <= 0
+        ? FoodStatus.soldOut
+        : menuContext.status;
+
     return detail.copyWith(
       kind: menuContext.kind,
-      status: menuContext.status,
+      status: status,
       menuScheduleItemId: menuContext.menuScheduleItemId,
-      remainingServings: menuContext.remainingServings,
+      remainingServings: remainingServings,
       mealType: menuContext.mealType,
       menuDateLabel: menuContext.menuDateLabel,
     );

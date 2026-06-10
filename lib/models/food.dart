@@ -105,7 +105,11 @@ class Food {
   factory Food.fromMenuScheduleItemJson(Map<String, dynamic> json) {
     final menuScheduleItemId =
         json['_id']?.toString() ?? json['menuScheduleItemId']?.toString() ?? '';
-    final remainingCount = (json['remainingCount'] as num? ?? 0).toInt();
+    final remainingRaw = json['remainingCount'] ??
+        json['remainingServings'] ??
+        json['remainingQuantity'] ??
+        json['remaining'];
+    final remainingCount = (remainingRaw as num? ?? 0).toInt();
     final isActive = json['isActive'] as bool? ?? true;
 
     final foodMap = json['foodId'] as Map<String, dynamic>? ?? {};
@@ -155,7 +159,9 @@ class Food {
   String get statusLabel {
     switch (status) {
       case FoodStatus.available:
-        return isMenuFood ? 'Remaining: ${remainingServings ?? 0}' : 'In stock';
+        if (!isMenuFood) return 'In stock';
+        final remaining = remainingServings ?? 0;
+        return remaining > 0 ? 'Remaining: $remaining' : 'Sold out';
       case FoodStatus.soldOut:
         return 'Sold out';
       case FoodStatus.comingSoon:
