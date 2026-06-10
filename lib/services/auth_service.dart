@@ -41,6 +41,11 @@ class AuthService {
     return _apiClient.postJson('/auth/forgot-password', {'email': email});
   }
 
+  Future<Map<String, dynamic>> resendForgotPasswordOtp(String email) {
+    return _apiClient
+        .postJson('/auth/resend-forgot-password-otp', {'email': email});
+  }
+
   Future<Map<String, dynamic>> resetPassword(
       {required String email,
       required String otp,

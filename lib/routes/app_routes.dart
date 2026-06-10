@@ -43,7 +43,9 @@ class AppRoutes {
       case ForgotPasswordScreen.routeName:
         return _route(const ForgotPasswordScreen());
       case ResetPasswordScreen.routeName:
-        return _route(const ResetPasswordScreen());
+        final args = settings.arguments;
+        final email = args is ResetPasswordArgs ? args.email : '';
+        return _route(ResetPasswordScreen(email: email));
       case MainShell.routeName:
         return _route(const MainShell());
       case TodayMenuScreen.routeName:
