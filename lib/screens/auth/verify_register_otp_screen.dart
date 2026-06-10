@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
-import '../../services/auth_storage.dart';
 import '../../widgets/app_button.dart';
-import '../home/main_shell.dart';
+import 'login_screen.dart';
 
 class VerifyRegisterOtpArgs {
   const VerifyRegisterOtpArgs({required this.email});
@@ -55,23 +54,17 @@ class _VerifyRegisterOtpScreenState extends State<VerifyRegisterOtpScreen> {
     });
 
     try {
-      final response = await _authService.verifyRegisterOtp(
+      await _authService.verifyRegisterOtp(
         email: widget.email,
         otp: otp,
       );
-      final token = AuthService.extractAccessToken(response);
-      if (token == null) {
-        if (!mounted) return;
-        setState(() {
-          _errorMessage = 'Verification succeeded but missing token.';
-        });
-        return;
-      }
-      await AuthStorage.saveToken(token);
       if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account verified. Please login.')),
+      );
       Navigator.pushNamedAndRemoveUntil(
         context,
-        MainShell.routeName,
+        LoginScreen.routeName,
         (route) => false,
       );
     } on ApiException catch (error) {
