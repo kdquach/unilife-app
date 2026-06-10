@@ -24,6 +24,19 @@ class AuthService {
     });
   }
 
+  Future<Map<String, dynamic>> verifyRegisterOtp(
+      {required String email, required String otp, bool rememberMe = true}) {
+    return _apiClient.postJson('/auth/verify-register-otp', {
+      'email': email,
+      'otp': otp,
+      'rememberMe': rememberMe,
+    });
+  }
+
+  Future<Map<String, dynamic>> resendRegisterOtp(String email) {
+    return _apiClient.postJson('/auth/resend-register-otp', {'email': email});
+  }
+
   Future<Map<String, dynamic>> forgotPassword(String email) {
     return _apiClient.postJson('/auth/forgot-password', {'email': email});
   }
@@ -41,5 +54,29 @@ class AuthService {
 
   Future<Map<String, dynamic>> logout({required String token}) {
     return _apiClient.postJson('/auth/logout', {}, token: token);
+  }
+
+  static String? extractAccessToken(Map<String, dynamic> response) {
+    return _stringOrNull(response['accessToken']) ??
+        _stringOrNull(response['token']) ??
+        _stringOrNull(response['jwt']) ??
+        _extractTokenFromData(response['data']);
+  }
+
+  static String? _extractTokenFromData(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      return _stringOrNull(data['accessToken']) ??
+          _stringOrNull(data['token']) ??
+          _stringOrNull(data['jwt']) ??
+          _stringOrNull(data['access_token']);
+    }
+    return null;
+  }
+
+  static String? _stringOrNull(dynamic value) {
+    if (value is String && value.trim().isNotEmpty) {
+      return value;
+    }
+    return null;
   }
 }

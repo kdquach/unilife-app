@@ -5,6 +5,7 @@ import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/auth/reset_password_screen.dart';
+import '../screens/auth/verify_register_otp_screen.dart';
 import '../screens/cart/cart_screen.dart';
 import '../screens/cart/checkout_data_note_screen.dart';
 import '../screens/food/food_detail_screen.dart';
@@ -35,6 +36,10 @@ class AppRoutes {
         return _route(const LoginScreen());
       case RegisterScreen.routeName:
         return _route(const RegisterScreen());
+      case VerifyRegisterOtpScreen.routeName:
+        final args = settings.arguments;
+        final email = args is VerifyRegisterOtpArgs ? args.email : '';
+        return _route(VerifyRegisterOtpScreen(email: email));
       case ForgotPasswordScreen.routeName:
         return _route(const ForgotPasswordScreen());
       case ResetPasswordScreen.routeName:
