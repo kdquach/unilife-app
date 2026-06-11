@@ -101,7 +101,8 @@ class AppRoutes {
       case OrderListScreen.routeName:
         return _route(const OrderListScreen());
       case OrderDetailScreen.routeName:
-        return _route(const OrderDetailScreen());
+        final orderId = settings.arguments as String? ?? '';
+        return _route(OrderDetailScreen(orderId: orderId));
       case NotificationsScreen.routeName:
         return _route(const NotificationsScreen());
       case NotificationDetailScreen.routeName:
