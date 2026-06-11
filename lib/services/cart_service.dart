@@ -6,6 +6,10 @@ class CartService {
 
   final ApiClient _apiClient;
 
+  Future<Map<String, dynamic>> getCart({String? token}) {
+    return _apiClient.getJson('/carts/my', token: token);
+  }
+
   Future<Map<String, dynamic>> addItem(CartItem item, {String? token}) {
     return _apiClient.postJson('/cart/items', item.toPayload(), token: token);
   }
