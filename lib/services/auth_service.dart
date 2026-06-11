@@ -24,8 +24,26 @@ class AuthService {
     });
   }
 
+  Future<Map<String, dynamic>> verifyRegisterOtp(
+      {required String email, required String otp, bool rememberMe = true}) {
+    return _apiClient.postJson('/auth/verify-register-otp', {
+      'email': email,
+      'otp': otp,
+      'rememberMe': rememberMe,
+    });
+  }
+
+  Future<Map<String, dynamic>> resendRegisterOtp(String email) {
+    return _apiClient.postJson('/auth/resend-register-otp', {'email': email});
+  }
+
   Future<Map<String, dynamic>> forgotPassword(String email) {
     return _apiClient.postJson('/auth/forgot-password', {'email': email});
+  }
+
+  Future<Map<String, dynamic>> resendForgotPasswordOtp(String email) {
+    return _apiClient
+        .postJson('/auth/resend-forgot-password-otp', {'email': email});
   }
 
   Future<Map<String, dynamic>> resetPassword(

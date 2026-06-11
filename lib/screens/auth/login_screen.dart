@@ -50,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final response =
           await _authService.login(email: email, password: password);
-      final token = _extractToken(response);
+      final token = AuthService.extractAccessToken(response);
       if (token == null) {
         if (!mounted) return;
         setState(() => _errorMessage = 'Login succeeded but missing token.');
@@ -70,30 +70,6 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _isLoading = false);
       }
     }
-  }
-
-  String? _extractToken(Map<String, dynamic> response) {
-    return _stringOrNull(response['accessToken']) ??
-        _stringOrNull(response['token']) ??
-        _stringOrNull(response['jwt']) ??
-        _extractTokenFromData(response['data']);
-  }
-
-  String? _extractTokenFromData(dynamic data) {
-    if (data is Map<String, dynamic>) {
-      return _stringOrNull(data['accessToken']) ??
-          _stringOrNull(data['token']) ??
-          _stringOrNull(data['jwt']) ??
-          _stringOrNull(data['access_token']);
-    }
-    return null;
-  }
-
-  String? _stringOrNull(dynamic value) {
-    if (value is String && value.trim().isNotEmpty) {
-      return value;
-    }
-    return null;
   }
 
   @override

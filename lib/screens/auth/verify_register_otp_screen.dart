@@ -6,31 +6,29 @@ import '../../services/auth_service.dart';
 import '../../widgets/app_button.dart';
 import 'login_screen.dart';
 
-class ResetPasswordArgs {
-  const ResetPasswordArgs({required this.email});
+class VerifyRegisterOtpArgs {
+  const VerifyRegisterOtpArgs({required this.email});
 
   final String email;
 }
 
-class ResetPasswordScreen extends StatefulWidget {
-  static const String routeName = '/reset-password';
+class VerifyRegisterOtpScreen extends StatefulWidget {
+  static const String routeName = '/verify-register-otp';
 
-  const ResetPasswordScreen({super.key, required this.email});
+  const VerifyRegisterOtpScreen({super.key, required this.email});
 
   final String email;
 
   @override
-  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
+  State<VerifyRegisterOtpScreen> createState() =>
+      _VerifyRegisterOtpScreenState();
 }
 
-class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
+class _VerifyRegisterOtpScreenState extends State<VerifyRegisterOtpScreen> {
   final TextEditingController _otpController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
   final AuthService _authService = AuthService(ApiClient());
 
-  bool _isResetting = false;
+  bool _isVerifying = false;
   bool _isResending = false;
   String? _errorMessage;
   String? _successMessage;
@@ -38,42 +36,31 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   @override
   void dispose() {
     _otpController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleResetPassword() async {
+  Future<void> _handleVerifyOtp() async {
     FocusScope.of(context).unfocus();
     final otp = _otpController.text.trim();
-    final password = _passwordController.text;
-    final confirmPassword = _confirmPasswordController.text;
-    final validationMessage = _validateInput(
-      otp: otp,
-      password: password,
-      confirmPassword: confirmPassword,
-    );
-
-    if (validationMessage != null) {
-      setState(() => _errorMessage = validationMessage);
+    if (otp.isEmpty) {
+      setState(() => _errorMessage = 'Please enter the OTP code.');
       return;
     }
 
     setState(() {
-      _isResetting = true;
+      _isVerifying = true;
       _errorMessage = null;
       _successMessage = null;
     });
 
     try {
-      await _authService.resetPassword(
+      await _authService.verifyRegisterOtp(
         email: widget.email,
         otp: otp,
-        newPassword: password,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password reset successfully.')),
+        const SnackBar(content: Text('Account verified. Please login.')),
       );
       Navigator.pushNamedAndRemoveUntil(
         context,
@@ -85,11 +72,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       setState(() => _errorMessage = error.message);
     } catch (_) {
       if (!mounted) return;
-      setState(
-          () => _errorMessage = 'Reset password failed. Please try again.');
+      setState(() => _errorMessage = 'Verification failed. Please try again.');
     } finally {
       if (mounted) {
-        setState(() => _isResetting = false);
+        setState(() => _isVerifying = false);
       }
     }
   }
@@ -102,7 +88,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     });
 
     try {
-      await _authService.resendForgotPasswordOtp(widget.email);
+      await _authService.resendRegisterOtp(widget.email);
       if (!mounted) return;
       setState(() {
         _successMessage = 'A new OTP has been sent to your email.';
@@ -120,27 +106,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     }
   }
 
-  String? _validateInput({
-    required String otp,
-    required String password,
-    required String confirmPassword,
-  }) {
-    if (otp.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
-      return 'Please fill in all fields.';
-    }
-    if (password.length < 6) {
-      return 'Password must be at least 6 characters.';
-    }
-    if (password != confirmPassword) {
-      return 'Confirm password does not match.';
-    }
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Reset password')),
+      appBar: AppBar(title: const Text('Verify email')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -155,13 +124,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.lock_reset_rounded,
+                  Icons.mark_email_read_outlined,
                   color: AppColors.primary,
                   size: 54,
                 ),
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 32),
             Text(
               'Enter the OTP sent to ${widget.email}',
               textAlign: TextAlign.center,
@@ -171,26 +140,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             TextField(
               controller: _otpController,
               keyboardType: TextInputType.number,
-              textInputAction: TextInputAction.next,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _handleVerifyOtp(),
               decoration: const InputDecoration(
                 labelText: 'OTP code',
                 hintText: '123456',
               ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(labelText: 'New password'),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _confirmPasswordController,
-              obscureText: true,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _handleResetPassword(),
-              decoration: const InputDecoration(labelText: 'Confirm password'),
             ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 16),
@@ -208,8 +163,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             ],
             const SizedBox(height: 30),
             AppButton(
-              label: _isResetting ? 'Resetting...' : 'Reset Password',
-              onPressed: _isResetting ? null : _handleResetPassword,
+              label: _isVerifying ? 'Verifying...' : 'Verify Account',
+              onPressed: _isVerifying ? null : _handleVerifyOtp,
             ),
             const SizedBox(height: 12),
             AppButton(
