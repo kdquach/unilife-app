@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
@@ -161,19 +162,9 @@ class _OrderListScreenState extends State<OrderListScreen> {
                 )
               else
                 ..._filteredOrders.map((order) {
-                  final s = order.status.toUpperCase();
-                  final isSuccess = s == 'COMPLETED' || s == 'READY';
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 16),
-                    child: _OrderCard(
-                      id: order.id,
-                      code: order.code,
-                      status: order.status,
-                      amount: order.totalPrice,
-                      queue: order.queueNumber,
-                      success: isSuccess,
-                      itemCount: order.items.length,
-                    ),
+                    child: _OrderCard(order: order),
                   );
                 }),
             ],
@@ -205,53 +196,102 @@ class _OrderChip extends StatelessWidget {
 }
 
 class _OrderCard extends StatelessWidget {
-  final String id;
-  final String code;
-  final String status;
-  final int amount;
-  final String queue;
-  final bool success;
-  final int itemCount;
+  final Order order;
 
-  const _OrderCard({
-    required this.id,
-    required this.code,
-    required this.status,
-    required this.amount,
-    required this.queue,
-    this.success = false,
-    required this.itemCount,
-  });
+  const _OrderCard({required this.order});
 
   @override
   Widget build(BuildContext context) {
+    final s = order.status.toUpperCase();
+    final isSuccess = s == 'COMPLETED' || s == 'READY';
+    final isCancelled = s == 'CANCELLED';
+    
+    Color statusBgColor = AppColors.primary;
+    if (isSuccess) statusBgColor = AppColors.success;
+    if (isCancelled) statusBgColor = AppColors.error;
+
+    String formattedTime = 'N/A';
+    if (order.createdAt != null) {
+      formattedTime = DateFormat('dd/MM/yyyy HH:mm').format(order.createdAt!.toLocal());
+    }
+
+    final totalItemsCount = order.items.fold(0, (sum, item) => sum + item.quantity);
+
     return AppCard(
       onTap: () => Navigator.pushNamed(
         context,
         OrderDetailScreen.routeName,
-        arguments: id,
+        arguments: order.id,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Expanded(child: Text(code, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900))),
+              Expanded(
+                child: Text(
+                  order.code,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(color: success ? AppColors.success : AppColors.primary, borderRadius: BorderRadius.circular(999)),
-                child: Text(status, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: statusBgColor,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  order.status,
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text('$itemCount items · ${CurrencyFormatter.vnd(amount)}', style: const TextStyle(color: AppColors.subText)),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
+          Text(
+            'Placed on: $formattedTime',
+            style: const TextStyle(color: AppColors.subText, fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          const Divider(height: 1, color: AppColors.border),
+          const SizedBox(height: 8),
           Row(
             children: [
-              Text('Queue $queue', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800)),
-              const Spacer(),
-              const Text('View detail', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      order.items.map((e) => '${e.quantity}x ${e.food.name}').join(', '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$totalItemsCount items · ${CurrencyFormatter.vnd(order.totalPrice)}',
+                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'Queue ${order.queueNumber}',
+                    style: const TextStyle(color: AppColors.text, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 2),
+                  const Row(
+                    children: [
+                      Text('Details', style: TextStyle(color: AppColors.subText, fontSize: 12)),
+                      Icon(Icons.chevron_right, color: AppColors.subText, size: 16),
+                    ],
+                  ),
+                ],
+              ),
             ],
           ),
         ],

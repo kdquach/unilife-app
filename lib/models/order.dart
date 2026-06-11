@@ -7,6 +7,9 @@ class Order {
   final String queueNumber;
   final List<CartItem> items;
   final int totalPrice;
+  final String paymentMethod;
+  final String paymentStatus;
+  final DateTime? createdAt;
 
   const Order({
     required this.id,
@@ -15,6 +18,9 @@ class Order {
     required this.queueNumber,
     required this.items,
     required this.totalPrice,
+    required this.paymentMethod,
+    required this.paymentStatus,
+    this.createdAt,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -38,6 +44,11 @@ class Order {
         ? itemsRaw.map((item) => CartItem.fromJson(item as Map<String, dynamic>)).toList()
         : <CartItem>[];
 
+    final paymentMethod = json['paymentMethod'] as String? ?? 'SEPAY';
+    final paymentStatus = json['paymentStatus'] as String? ?? 'PENDING';
+    final createdAtStr = json['createdAt'] as String?;
+    final createdAt = createdAtStr != null ? DateTime.tryParse(createdAtStr) : null;
+
     return Order(
       id: json['id']?.toString() ?? json['_id']?.toString() ?? '',
       code: json['orderCode'] as String? ?? 'UNKNOWN',
@@ -45,6 +56,9 @@ class Order {
       queueNumber: queueNum,
       items: itemsList,
       totalPrice: ((json['totalPrice'] as num?) ?? 0).toInt(),
+      paymentMethod: paymentMethod,
+      paymentStatus: paymentStatus,
+      createdAt: createdAt,
     );
   }
 }
