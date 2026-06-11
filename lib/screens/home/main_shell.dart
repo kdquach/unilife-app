@@ -12,23 +12,43 @@ import 'home_screen.dart';
 
 class MainShell extends StatefulWidget {
   static const String routeName = '/main';
+  final int initialIndex;
+  final String? initialMenuCategoryId;
+  final String? initialMenuCategoryName;
+  final bool initialMenuTodayOnly;
 
-  const MainShell({super.key});
+  const MainShell({
+    super.key,
+    this.initialIndex = 0,
+    this.initialMenuCategoryId,
+    this.initialMenuCategoryName,
+    this.initialMenuTodayOnly = false,
+  });
 
   @override
   State<MainShell> createState() => _MainShellState();
 }
 
 class _MainShellState extends State<MainShell> {
-  int _index = 0;
+  late int _index;
+  late final List<Widget> _screens;
 
-  final List<Widget> _screens = const [
-    HomeScreen(),
-    MenuScreen(),
-    CartScreen(showBackButton: false),
-    OrderListScreen(showBackButton: false),
-    ProfileScreen(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex;
+    _screens = [
+      const HomeScreen(),
+      MenuScreen(
+        preselectedCategoryId: widget.initialMenuCategoryId,
+        preselectedCategoryName: widget.initialMenuCategoryName,
+        preselectedTodayOnly: widget.initialMenuTodayOnly,
+      ),
+      const CartScreen(showBackButton: false),
+      const OrderListScreen(showBackButton: false),
+      const ProfileScreen(),
+    ];
+  }
 
   Future<void> _handleDestinationSelected(int value) async {
     const restrictedTabs = {2, 3, 4};

@@ -12,6 +12,7 @@ import '../screens/food/food_detail_screen.dart';
 import '../screens/home/main_shell.dart';
 import '../screens/menu/always_available_screen.dart';
 import '../screens/menu/today_menu_screen.dart';
+import '../screens/menu/weekly_menu_screen.dart';
 import '../screens/notification/notification_detail_screen.dart';
 import '../screens/notification/notifications_screen.dart';
 import '../screens/order/order_detail_screen.dart';
@@ -47,11 +48,46 @@ class AppRoutes {
         final email = args is ResetPasswordArgs ? args.email : '';
         return _route(ResetPasswordScreen(email: email));
       case MainShell.routeName:
-        return _route(const MainShell());
+        final arguments = settings.arguments;
+        int initialIndex = 0;
+        String? categoryId;
+        String? categoryName;
+        bool todayOnly = false;
+        if (arguments is Map) {
+          initialIndex = arguments['tabIndex'] as int? ?? 0;
+          categoryId = arguments['categoryId'] as String?;
+          categoryName = arguments['categoryName'] as String?;
+          todayOnly = arguments['todayOnly'] as bool? ?? false;
+        }
+        return _route(
+          MainShell(
+            initialIndex: initialIndex,
+            initialMenuCategoryId: categoryId,
+            initialMenuCategoryName: categoryName,
+            initialMenuTodayOnly: todayOnly,
+          ),
+        );
       case TodayMenuScreen.routeName:
         return _route(const TodayMenuScreen());
+      case WeeklyMenuScreen.routeName:
+        return _route(const WeeklyMenuScreen());
       case AlwaysAvailableScreen.routeName:
-        return _route(const AlwaysAvailableScreen());
+        final arguments = settings.arguments;
+        String? categoryId;
+        String? categoryName;
+        if (arguments is Map) {
+          categoryId = arguments['categoryId'] as String?;
+          categoryName = arguments['categoryName'] as String?;
+        } else {
+          categoryName = arguments as String?;
+        }
+        return _route(
+          AlwaysAvailableScreen(
+            preselectedCategoryId: categoryId,
+            preselectedCategoryName: categoryName,
+          ),
+        );
+
       case FoodDetailScreen.routeName:
         return _route(FoodDetailScreen(food: settings.arguments as Food));
       case CartScreen.routeName:
