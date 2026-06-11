@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -30,6 +31,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Order? _order;
   bool _isLoading = true;
   String? _errorMessage;
+  Timer? _pollingTimer;
 
   @override
   void initState() {
@@ -37,12 +39,20 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     _fetchOrderDetail();
   }
 
-  Future<void> _fetchOrderDetail() async {
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchOrderDetail({bool quiet = false}) async {
     if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    if (!quiet) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final token = await AuthStorage.getToken();
@@ -51,15 +61,38 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       if (!mounted) return;
       setState(() {
         _order = order;
-        _isLoading = false;
+        if (!quiet) _isLoading = false;
       });
+      _startPolling();
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = error.toString().replaceFirst('ApiException: ', '');
-        _isLoading = false;
+        if (!quiet) {
+          _errorMessage = error.toString().replaceFirst('ApiException: ', '');
+          _isLoading = false;
+        }
       });
     }
+  }
+
+  bool _isTerminalStatus(String status) {
+    final s = status.toUpperCase();
+    return s == 'COMPLETED' || s == 'CANCELLED';
+  }
+
+  void _startPolling() {
+    _pollingTimer?.cancel();
+    if (_order == null || _isTerminalStatus(_order!.status)) {
+      return;
+    }
+
+    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      await _fetchOrderDetail(quiet: true);
+    });
   }
 
   Future<void> _cancelOrder() async {
@@ -324,7 +357,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ),
             ),
             const SizedBox(height: 26),
-            const Text('Order Timeline', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            Row(
+              children: [
+                const Text('Order Timeline', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                if (!_isTerminalStatus(order.status)) ...[
+                  const SizedBox(width: 8),
+                  const _PulsingDot(),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Live tracking',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.green,
+                    ),
+                  ),
+                ],
+              ],
+            ),
             const SizedBox(height: 16),
             AppCard(
               child: Column(
@@ -619,6 +669,60 @@ class _ProgressStep extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PulsingDot extends StatefulWidget {
+  const _PulsingDot();
+
+  @override
+  State<_PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.green.withValues(alpha: _animation.value),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.green.withValues(alpha: 0.4 * _animation.value),
+                blurRadius: 6,
+                spreadRadius: 2 * _animation.value,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
