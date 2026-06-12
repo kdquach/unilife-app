@@ -1,25 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../models/food.dart';
 import '../../models/menu_schedule.dart';
 import '../../services/api_client.dart';
-import '../../services/app_state.dart';
+import '../../states/cart_provider.dart';
 import '../../services/food_service.dart';
 import '../../widgets/food_cards.dart';
 import '../food/food_detail_screen.dart';
 
-class WeeklyMenuScreen extends StatefulWidget {
+class WeeklyMenuScreen extends ConsumerStatefulWidget {
   static const String routeName = '/weekly-menu';
 
   const WeeklyMenuScreen({super.key});
 
   @override
-  State<WeeklyMenuScreen> createState() => _WeeklyMenuScreenState();
+  ConsumerState<WeeklyMenuScreen> createState() => _WeeklyMenuScreenState();
 }
 
-class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
+class _WeeklyMenuScreenState extends ConsumerState<WeeklyMenuScreen> {
   final FoodService _foodService = FoodService(ApiClient());
 
   List<MenuSchedule> _schedules = [];
@@ -78,10 +79,18 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
   void _open(Food food) =>
       Navigator.pushNamed(context, FoodDetailScreen.routeName, arguments: food);
 
-  void _add(Food food) {
-    AppState.instance.addToCart(food);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('${food.name} added to cart')));
+  Future<void> _add(Food food) async {
+    try {
+      await ref.read(cartProvider.notifier).addItem(food);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${food.name} added to cart')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e.toString().replaceAll('Exception: ', '')),
+        backgroundColor: Colors.red,
+      ));
+    }
   }
 
   @override

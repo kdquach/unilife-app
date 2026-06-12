@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../models/food.dart';
 import '../../services/api_client.dart';
-import '../../services/app_state.dart';
+import '../../states/cart_provider.dart';
 import '../../services/auth_storage.dart';
 import '../../services/food_service.dart';
 import '../../widgets/app_button.dart';
@@ -12,7 +13,7 @@ import '../../widgets/status_badge.dart';
 import '../auth/login_screen.dart';
 import '../cart/cart_screen.dart';
 
-class FoodDetailScreen extends StatefulWidget {
+class FoodDetailScreen extends ConsumerStatefulWidget {
   static const String routeName = '/food-detail';
 
   final Food food;
@@ -20,10 +21,10 @@ class FoodDetailScreen extends StatefulWidget {
   const FoodDetailScreen({super.key, required this.food});
 
   @override
-  State<FoodDetailScreen> createState() => _FoodDetailScreenState();
+  ConsumerState<FoodDetailScreen> createState() => _FoodDetailScreenState();
 }
 
-class _FoodDetailScreenState extends State<FoodDetailScreen> {
+class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
   final FoodService _foodService = FoodService(ApiClient());
 
   late Food _food;
@@ -123,18 +124,27 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
 
   Future<void> _addToCart({bool openCart = false}) async {
     if (!_food.canAddToCart) return;
-    AppState.instance.addToCart(_food, quantity: quantity);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${_food.name} added to cart')));
-    if (openCart) {
-      final token = await AuthStorage.getToken();
+    
+    final token = await AuthStorage.getToken();
+    if (!mounted) return;
+    if (token == null) {
+      Navigator.pushNamed(context, LoginScreen.routeName);
+      return;
+    }
+
+    try {
+      await ref.read(cartProvider.notifier).addItem(_food, quantity: quantity);
       if (!mounted) return;
-      if (token == null) {
-        Navigator.pushNamed(context, LoginScreen.routeName);
-        return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${_food.name} added to cart')));
+      if (openCart) {
+        Navigator.pushNamed(context, CartScreen.routeName);
       }
-      Navigator.pushNamed(context, CartScreen.routeName);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e.toString().replaceAll('Exception: ', '')),
+        backgroundColor: Colors.red,
+      ));
     }
   }
 

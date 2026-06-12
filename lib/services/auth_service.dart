@@ -107,10 +107,26 @@ class AuthService {
     );
   }
 
-  static String? extractAccessToken(Map<String, dynamic> json) {
-    final data = json['data'];
+  static String? extractAccessToken(Map<String, dynamic> response) {
+    return _stringOrNull(response['accessToken']) ??
+        _stringOrNull(response['token']) ??
+        _stringOrNull(response['jwt']) ??
+        _extractTokenFromData(response['data']);
+  }
+
+  static String? _extractTokenFromData(dynamic data) {
     if (data is Map<String, dynamic>) {
-      return data['accessToken'] as String?;
+      return _stringOrNull(data['accessToken']) ??
+          _stringOrNull(data['token']) ??
+          _stringOrNull(data['jwt']) ??
+          _stringOrNull(data['access_token']);
+    }
+    return null;
+  }
+
+  static String? _stringOrNull(dynamic value) {
+    if (value is String && value.trim().isNotEmpty) {
+      return value;
     }
     return null;
   }

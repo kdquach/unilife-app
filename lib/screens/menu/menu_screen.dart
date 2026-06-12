@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../models/food.dart';
 import '../../models/food_category.dart';
 import '../../services/api_client.dart';
-import '../../services/app_state.dart';
+import '../../states/cart_provider.dart';
 import '../../services/food_service.dart';
 import '../../widgets/food_cards.dart';
 import '../../widgets/food_image_placeholder.dart';
@@ -16,7 +17,7 @@ import 'always_available_screen.dart';
 import 'today_menu_screen.dart';
 import 'weekly_menu_screen.dart';
 
-class MenuScreen extends StatefulWidget {
+class MenuScreen extends ConsumerStatefulWidget {
   final String? preselectedCategoryId;
   final String? preselectedCategoryName;
   final bool preselectedTodayOnly;
@@ -29,10 +30,10 @@ class MenuScreen extends StatefulWidget {
   });
 
   @override
-  State<MenuScreen> createState() => _MenuScreenState();
+  ConsumerState<MenuScreen> createState() => _MenuScreenState();
 }
 
-class _MenuScreenState extends State<MenuScreen> {
+class _MenuScreenState extends ConsumerState<MenuScreen> {
   final FoodService _foodService = FoodService(ApiClient());
 
   List<Food> _scheduledFoods = [];
@@ -175,11 +176,18 @@ class _MenuScreenState extends State<MenuScreen> {
   void _openDetail(Food food) =>
       Navigator.pushNamed(context, FoodDetailScreen.routeName, arguments: food);
 
-  void _add(Food food) {
-    AppState.instance.addToCart(food);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${food.name} added to cart')));
+  Future<void> _add(Food food) async {
+    try {
+      await ref.read(cartProvider.notifier).addItem(food);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${food.name} added to cart')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e.toString().replaceAll('Exception: ', '')),
+        backgroundColor: Colors.red,
+      ));
+    }
   }
 
   Future<void> _loadFilteredFoods() async {

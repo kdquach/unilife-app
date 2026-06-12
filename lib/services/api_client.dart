@@ -47,6 +47,14 @@ class ApiClient {
     return _decode(response);
   }
 
+  Future<Map<String, dynamic>> deleteJson(String path, {String? token}) async {
+    final response = await _client.delete(
+      Uri.parse('$baseUrl$path'),
+      headers: _headers(token),
+    );
+    return _decode(response);
+  }
+
   Future<Map<String, dynamic>> uploadFile(
     String path,
     String fieldName,

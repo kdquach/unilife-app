@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../models/food.dart';
 import '../../models/food_category.dart';
 import '../../services/api_client.dart';
-import '../../services/app_state.dart';
+import '../../states/cart_provider.dart';
 import '../../services/food_service.dart';
 import '../../widgets/food_cards.dart';
 import '../food/food_detail_screen.dart';
 
-class AlwaysAvailableScreen extends StatefulWidget {
+class AlwaysAvailableScreen extends ConsumerStatefulWidget {
   static const String routeName = '/always-available';
   final String? preselectedCategoryId;
   final String? preselectedCategoryName;
@@ -22,10 +23,10 @@ class AlwaysAvailableScreen extends StatefulWidget {
   });
 
   @override
-  State<AlwaysAvailableScreen> createState() => _AlwaysAvailableScreenState();
+  ConsumerState<AlwaysAvailableScreen> createState() => _AlwaysAvailableScreenState();
 }
 
-class _AlwaysAvailableScreenState extends State<AlwaysAvailableScreen> {
+class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
   final FoodService _foodService = FoodService(ApiClient());
 
   List<Food> _foods = [];
@@ -153,11 +154,18 @@ class _AlwaysAvailableScreenState extends State<AlwaysAvailableScreen> {
   void _open(Food food) =>
       Navigator.pushNamed(context, FoodDetailScreen.routeName, arguments: food);
 
-  void _add(Food food) {
-    AppState.instance.addToCart(food);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${food.name} added to cart')));
+  Future<void> _add(Food food) async {
+    try {
+      await ref.read(cartProvider.notifier).addItem(food);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${food.name} added to cart')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e.toString().replaceAll('Exception: ', '')),
+        backgroundColor: Colors.red,
+      ));
+    }
   }
 
   Future<void> _selectCategory(String? categoryId) async {
