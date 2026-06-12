@@ -135,5 +135,8 @@ class SampleData {
         queueNumber: 'A12',
         items: initialCart,
         totalPrice: initialCart.fold(0, (sum, item) => sum + item.subtotal),
+        paymentMethod: 'SEPAY',
+        paymentStatus: 'PAID',
+        createdAt: DateTime.now(),
       );
 }

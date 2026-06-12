@@ -106,4 +106,12 @@ class AuthService {
       token: token,
     );
   }
+
+  static String? extractAccessToken(Map<String, dynamic> json) {
+    final data = json['data'];
+    if (data is Map<String, dynamic>) {
+      return data['accessToken'] as String?;
+    }
+    return null;
+  }
 }
