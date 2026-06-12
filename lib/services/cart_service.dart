@@ -10,8 +10,12 @@ class CartService {
     return _apiClient.getJson('/carts/my', token: token);
   }
 
-  Future<Map<String, dynamic>> addItem(CartItem item, {String? token}) {
-    return _apiClient.postJson('/cart/items', item.toPayload(), token: token);
+  Future<Map<String, dynamic>> addItem(Map<String, dynamic> payload, {String? token}) {
+    return _apiClient.postJson('/carts/my/items', payload, token: token);
+  }
+
+  Future<Map<String, dynamic>> updateItemQuantity(String cartItemId, int quantity, {String? token}) {
+    return _apiClient.patchJson('/carts/my/items/$cartItemId', {'quantity': quantity}, token: token);
   }
 
   Future<Map<String, dynamic>> checkout(List<CartItem> items, {String? token}) {

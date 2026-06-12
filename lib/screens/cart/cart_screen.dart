@@ -101,14 +101,42 @@ class CartScreen extends ConsumerWidget {
   }
 }
 
-class _CartItemRow extends StatelessWidget {
+class _CartItemRow extends ConsumerStatefulWidget {
   final CartItemDto item;
   final bool isInvalid;
 
   const _CartItemRow({required this.item, this.isInvalid = false});
 
   @override
+  ConsumerState<_CartItemRow> createState() => _CartItemRowState();
+}
+
+class _CartItemRowState extends ConsumerState<_CartItemRow> {
+  bool _isLoading = false;
+
+  Future<void> _updateQuantity(int newQuantity) async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      await ref.read(cartProvider.notifier).updateItemQuantity(widget.item.cartItemId, newQuantity);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final item = widget.item;
+    final isInvalid = widget.isInvalid;
     final food = item.food;
     final String title = food?.name ?? 'Unknown Item';
     final String type = (food?.isMenuFood ?? false) ? 'Menu Food' : 'Always Available';
@@ -136,9 +164,49 @@ class _CartItemRow extends StatelessWidget {
               children: [
                 Text(title, style: TextStyle(fontWeight: FontWeight.w900, color: isInvalid ? Colors.grey : AppColors.text, decoration: isInvalid ? TextDecoration.lineThrough : null)),
                 const SizedBox(height: 6),
-                Text(
-                  '$type · qty ${item.quantity}',
-                  style: TextStyle(color: isInvalid ? Colors.redAccent : AppColors.subText, fontSize: 12),
+                if (!isInvalid) Row(
+                  children: [
+                    Text(type, style: const TextStyle(color: AppColors.subText, fontSize: 12)),
+                    const Spacer(),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          InkWell(
+                            onTap: () => _updateQuantity(item.quantity - 1),
+                            child: const Padding(padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2), child: Icon(Icons.remove, size: 16)),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: _isLoading 
+                                ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
+                                : Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                          InkWell(
+                            onTap: () => _updateQuantity(item.quantity + 1),
+                            child: const Padding(padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2), child: Icon(Icons.add, size: 16)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ) else Row(
+                  children: [
+                    Text(
+                      '$type · qty ${item.quantity}',
+                      style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _updateQuantity(0),
+                    ),
+                  ],
                 ),
                 if (isInvalid && item.reason != null) ...[
                   const SizedBox(height: 4),
@@ -150,6 +218,7 @@ class _CartItemRow extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: 12),
           Text(CurrencyFormatter.vnd(item.subtotal), style: TextStyle(color: isInvalid ? Colors.grey : AppColors.primary, fontWeight: FontWeight.w900, decoration: isInvalid ? TextDecoration.lineThrough : null)),
         ],
       ),

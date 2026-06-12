@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:unilife_mobile/models/cart.dart';
+import 'package:unilife_mobile/models/food.dart';
 
 void main() {
   group('Cart Model Test', () {
@@ -54,6 +55,46 @@ void main() {
       expect(item.food?.price, 50000);
       
       expect(item.menuSchedule, isNotNull);
+    });
+
+    test('Food canAddToCart is true for Regular Foods', () {
+      final alwaysAvailableFood = Food(
+        id: 'food-2',
+        name: 'Regular Drink',
+        description: 'Cola',
+        price: 15000,
+        imageUrl: '',
+        category: 'Drinks',
+        status: FoodStatus.available,
+        rating: 4.0,
+        kind: FoodKind.alwaysAvailable,
+        stockQuantity: 10,
+      );
+
+      // Backend now supports Regular Foods in cart
+      expect(alwaysAvailableFood.canAddToCart, true);
+      final payload = alwaysAvailableFood.toCartAddPayload(1);
+      expect(payload['foodId'], 'food-2');
+      expect(payload['menuScheduleItemId'], null);
+    });
+
+    test('Food toCartAddPayload creates correct payload for Menu Food', () {
+      final menuFood = Food(
+        id: 'food-123',
+        menuScheduleItemId: 'menu-abc',
+        name: 'Menu Item',
+        category: 'Cat',
+        description: 'Desc',
+        price: 10000,
+        kind: FoodKind.menuFood,
+        status: FoodStatus.available,
+      );
+
+      final menuPayload = menuFood.toCartAddPayload(2);
+      expect(menuPayload.containsKey('foodId'), isFalse);
+      expect(menuPayload.containsKey('dishId'), isFalse);
+      expect(menuPayload['menuScheduleItemId'], 'menu-abc');
+      expect(menuPayload['quantity'], 2);
     });
   });
 }

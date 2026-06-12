@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/cart.dart';
+import '../models/food.dart';
 import '../services/api_client.dart';
 import '../services/auth_storage.dart';
 import '../services/cart_service.dart';
@@ -33,6 +34,40 @@ class CartNotifier extends AsyncNotifier<Cart?> {
   Future<void> refreshCart() async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() => _fetchCart());
+  }
+
+  Future<void> addItem(Food food, {int quantity = 1}) async {
+    final token = await AuthStorage.getToken();
+    if (token == null) {
+      throw Exception('No access token found. Please login again.');
+    }
+    
+    final payload = food.toCartAddPayload(quantity);
+
+    final response = await _cartService.addItem(payload, token: token);
+    
+    if (response['success'] == true) {
+      final data = response['data'] as Map<String, dynamic>;
+      state = AsyncValue.data(Cart.fromJson(data));
+    } else {
+      throw Exception(response['message']?.toString() ?? 'Failed to add item');
+    }
+  }
+
+  Future<void> updateItemQuantity(String cartItemId, int quantity) async {
+    final token = await AuthStorage.getToken();
+    if (token == null) {
+      throw Exception('No access token found. Please login again.');
+    }
+    
+    final response = await _cartService.updateItemQuantity(cartItemId, quantity, token: token);
+    
+    if (response['success'] == true) {
+      final data = response['data'] as Map<String, dynamic>;
+      state = AsyncValue.data(Cart.fromJson(data));
+    } else {
+      throw Exception(response['message']?.toString() ?? 'Failed to update item quantity');
+    }
   }
 }
 

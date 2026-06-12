@@ -1,31 +1,86 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../../data/sample_data.dart';
 import '../../models/food.dart';
-import '../../services/app_state.dart';
+import '../../services/api_client.dart';
+import '../../services/food_service.dart';
+import '../../states/cart_provider.dart';
 import '../../widgets/food_cards.dart';
 import '../food/food_detail_screen.dart';
 import '../menu/always_available_screen.dart';
 import '../menu/today_menu_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final FoodService _foodService = FoodService(ApiClient());
+  List<Food> _menuFoods = [];
+  List<Food> _regularFoods = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFoods();
+  }
+
+  Future<void> _loadFoods() async {
+    try {
+      final results = await Future.wait([
+        _foodService.getTodayMenuFoods(),
+        _foodService.getAlwaysAvailableFoods(),
+      ]);
+      
+      final menuFoods = results[0];
+      final regularFoods = results[1];
+      
+      if (!mounted) return;
+      setState(() {
+        _menuFoods = menuFoods.take(1).toList();
+        _regularFoods = regularFoods.take(2).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
+  }
 
   void _openDetail(BuildContext context, Food food) =>
       Navigator.pushNamed(context, FoodDetailScreen.routeName, arguments: food);
 
-  void _add(BuildContext context, Food food) {
-    AppState.instance.addToCart(food);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${food.name} added to cart')),
-    );
+  Future<void> _add(BuildContext context, WidgetRef ref, Food food) async {
+    try {
+      await ref.read(cartProvider.notifier).addItem(food);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${food.name} added to cart')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.red),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final menuFood = SampleData.menuFoods.first;
-    final regularFoods = SampleData.regularFoods.take(2).toList();
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF7F7F8),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final menuFood = _menuFoods.isNotEmpty ? _menuFoods.first : null;
+    final regularFoods = _regularFoods;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F8),
@@ -54,14 +109,15 @@ class HomeScreen extends StatelessWidget {
               onAction: () =>
                   Navigator.pushNamed(context, TodayMenuScreen.routeName),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: MenuFoodCard(
-                food: menuFood,
-                onTap: () => _openDetail(context, menuFood),
-                onAdd: () => _add(context, menuFood),
+            if (menuFood != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: MenuFoodCard(
+                  food: menuFood,
+                  onTap: () => _openDetail(context, menuFood),
+                  onAdd: menuFood.canAddToCart ? () => _add(context, ref, menuFood) : null,
+                ),
               ),
-            ),
             // ── Always Available ─────────────────────────────────────────────
             _SectionHeader(
               title: 'Always Available',
@@ -86,7 +142,7 @@ class HomeScreen extends StatelessWidget {
                   return RegularFoodCard(
                     food: food,
                     onTap: () => _openDetail(context, food),
-                    onAdd: () => _add(context, food),
+                    onAdd: food.canAddToCart ? () => _add(context, ref, food) : null,
                   );
                 },
               ),
