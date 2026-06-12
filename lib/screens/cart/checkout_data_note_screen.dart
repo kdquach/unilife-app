@@ -4,11 +4,52 @@ import '../../core/theme/app_colors.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 import '../payment/sepay_payment_screen.dart';
+import '../../services/cart_service.dart';
+import '../../services/api_client.dart';
+import '../../services/auth_storage.dart';
+import '../../services/app_state.dart';
+import '../../models/order.dart';
 
 class CheckoutDataNoteScreen extends StatelessWidget {
   static const String routeName = '/checkout-note';
 
   const CheckoutDataNoteScreen({super.key});
+
+  Future<void> _performCheckout(BuildContext context) async {
+    final items = AppState.instance.cart.value;
+    if (items.isEmpty) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final token = await AuthStorage.getToken();
+      final response = await CartService(ApiClient()).checkout(items, token: token);
+      final orderJson = response['data'];
+      final order = Order.fromJson(orderJson);
+
+      AppState.instance.clearCart();
+
+      if (!context.mounted) return;
+      Navigator.pop(context); // Pop loading dialog
+
+      Navigator.pushNamed(
+        context,
+        SepayPaymentScreen.routeName,
+        arguments: order,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.pop(context); // Pop loading dialog
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Checkout failed: ${e.toString().replaceFirst('ApiException: ', '')}')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +81,10 @@ class CheckoutDataNoteScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 28),
-          AppButton(label: 'Pay with Sepay', onPressed: () => Navigator.pushNamed(context, SepayPaymentScreen.routeName)),
+          AppButton(
+            label: 'Pay with Sepay',
+            onPressed: () => _performCheckout(context),
+          ),
         ],
       ),
     );

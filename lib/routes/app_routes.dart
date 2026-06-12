@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/food.dart';
+import '../models/order.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
@@ -95,13 +96,16 @@ class AppRoutes {
       case CheckoutDataNoteScreen.routeName:
         return _route(const CheckoutDataNoteScreen());
       case SepayPaymentScreen.routeName:
-        return _route(const SepayPaymentScreen());
+        final order = settings.arguments as Order;
+        return _route(SepayPaymentScreen(order: order));
       case PaymentSuccessScreen.routeName:
-        return _route(const PaymentSuccessScreen());
+        final orderId = settings.arguments as String? ?? '';
+        return _route(PaymentSuccessScreen(orderId: orderId));
       case OrderListScreen.routeName:
         return _route(const OrderListScreen());
       case OrderDetailScreen.routeName:
-        return _route(const OrderDetailScreen());
+        final orderId = settings.arguments as String? ?? '';
+        return _route(OrderDetailScreen(orderId: orderId));
       case NotificationsScreen.routeName:
         return _route(const NotificationsScreen());
       case NotificationDetailScreen.routeName:

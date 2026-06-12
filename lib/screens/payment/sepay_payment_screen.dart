@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/currency_formatter.dart';
+import '../../models/order.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 import 'payment_success_screen.dart';
@@ -8,7 +10,9 @@ import 'payment_success_screen.dart';
 class SepayPaymentScreen extends StatelessWidget {
   static const String routeName = '/sepay-payment';
 
-  const SepayPaymentScreen({super.key});
+  final Order order;
+
+  const SepayPaymentScreen({super.key, required this.order});
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +35,7 @@ class SepayPaymentScreen extends StatelessWidget {
                   child: const Text('QR', style: TextStyle(color: AppColors.primary, fontSize: 56, fontWeight: FontWeight.w900)),
                 ),
                 const SizedBox(height: 18),
-                const Text('Order code: ORD-24001', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                Text('Order code: ${order.code}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
               ],
             ),
           ),
@@ -39,19 +43,26 @@ class SepayPaymentScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(24)),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Amount to pay', style: TextStyle(color: AppColors.subText, fontWeight: FontWeight.w600)),
-                SizedBox(height: 6),
-                Text('97,000đ', style: TextStyle(color: AppColors.primary, fontSize: 28, fontWeight: FontWeight.w900)),
-                SizedBox(height: 14),
-                Text('Waiting for Sepay confirmation...', style: TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.w700)),
+                const Text('Amount to pay', style: TextStyle(color: AppColors.subText, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                Text(CurrencyFormatter.vnd(order.totalPrice), style: const TextStyle(color: AppColors.primary, fontSize: 28, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 14),
+                const Text('Waiting for Sepay confirmation...', style: TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.w700)),
               ],
             ),
           ),
           const SizedBox(height: 28),
-          AppButton(label: 'I have paid', onPressed: () => Navigator.pushReplacementNamed(context, PaymentSuccessScreen.routeName)),
+          AppButton(
+            label: 'I have paid',
+            onPressed: () => Navigator.pushReplacementNamed(
+              context,
+              PaymentSuccessScreen.routeName,
+              arguments: order.id,
+            ),
+          ),
         ],
       ),
     );
