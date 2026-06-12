@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../services/auth_storage.dart';
+import '../../states/cart_provider.dart';
 import '../cart/cart_screen.dart';
 import '../auth/login_screen.dart';
 import '../menu/menu_screen.dart';
@@ -10,7 +12,7 @@ import '../order/order_list_screen.dart';
 import '../profile/profile_screen.dart';
 import 'home_screen.dart';
 
-class MainShell extends StatefulWidget {
+class MainShell extends ConsumerStatefulWidget {
   static const String routeName = '/main';
   final int initialIndex;
   final String? initialMenuCategoryId;
@@ -26,10 +28,10 @@ class MainShell extends StatefulWidget {
   });
 
   @override
-  State<MainShell> createState() => _MainShellState();
+  ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends ConsumerState<MainShell> {
   late int _index;
   late final List<Widget> _screens;
 
@@ -66,26 +68,37 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    final cartState = ref.watch(cartProvider);
+    final int cartItemsCount = cartState.value?.totalItems ?? 0;
+
     return Scaffold(
       body: _screens[_index],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         indicatorColor: AppColors.primarySoft,
         onDestinationSelected: _handleDestinationSelected,
-        destinations: const [
-          NavigationDestination(
+        destinations: [
+          const NavigationDestination(
               icon: Icon(Icons.home_outlined),
               selectedIcon: Icon(Icons.home_rounded),
               label: 'Home'),
-          NavigationDestination(
+          const NavigationDestination(
               icon: Icon(Icons.restaurant_menu_outlined),
               selectedIcon: Icon(Icons.restaurant_menu_rounded),
               label: 'Menu'),
           NavigationDestination(
-              icon: Icon(Icons.shopping_cart_outlined),
-              selectedIcon: Icon(Icons.shopping_cart_rounded),
+              icon: Badge(
+                isLabelVisible: cartItemsCount > 0,
+                label: Text(cartItemsCount.toString()),
+                child: const Icon(Icons.shopping_cart_outlined),
+              ),
+              selectedIcon: Badge(
+                isLabelVisible: cartItemsCount > 0,
+                label: Text(cartItemsCount.toString()),
+                child: const Icon(Icons.shopping_cart_rounded),
+              ),
               label: 'Cart'),
-          NavigationDestination(
+          const NavigationDestination(
               icon: Icon(Icons.receipt_long_outlined),
               selectedIcon: Icon(Icons.receipt_long_rounded),
               label: 'Orders'),

@@ -16,6 +16,22 @@ class Cart {
     required this.items,
   });
 
+  Cart copyWith({
+    String? cartId,
+    String? userId,
+    int? totalPrice,
+    int? totalItems,
+    List<CartItemDto>? items,
+  }) {
+    return Cart(
+      cartId: cartId ?? this.cartId,
+      userId: userId ?? this.userId,
+      totalPrice: totalPrice ?? this.totalPrice,
+      totalItems: totalItems ?? this.totalItems,
+      items: items ?? this.items,
+    );
+  }
+
   List<CartItemDto> get validItems => items.where((e) => e.isValid).toList();
   List<CartItemDto> get invalidItems => items.where((e) => !e.isValid).toList();
 

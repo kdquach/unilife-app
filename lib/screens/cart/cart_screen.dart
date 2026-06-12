@@ -194,24 +194,20 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
       }
       
       if (!mounted) return;
-      setState(() => _isLoading = true);
+      final messenger = ScaffoldMessenger.of(context);
       try {
-        await ref.read(cartProvider.notifier).updateItemQuantity(widget.item.cartItemId, 0);
+        await ref.read(cartProvider.notifier).removeItem(widget.item.cartItemId);
       } catch (e) {
         if (mounted) {
           setState(() {
             _localQuantity = widget.item.quantity;
           });
-          final errorMessage = e is ApiException ? e.message : e.toString().replaceAll('Exception: ', '');
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-          ));
         }
-      } finally {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
+        final errorMessage = e is ApiException ? e.message : e.toString().replaceAll('Exception: ', '');
+        messenger.showSnackBar(SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+        ));
       }
       return;
     }
@@ -271,7 +267,16 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
             ),
             ElevatedButton(
               onPressed: () {
-                final val = int.tryParse(controller.text);
+                final text = controller.text.trim();
+                final val = int.tryParse(text);
+                if (val == null) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Please enter a valid number'),
+                    backgroundColor: Colors.red,
+                  ));
+                  return;
+                }
                 Navigator.pop(context, val);
               },
               style: ElevatedButton.styleFrom(
@@ -298,7 +303,50 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
     final String title = food?.name ?? 'Unknown Item';
     final String type = (food?.isMenuFood ?? false) ? 'Menu Food' : 'Always Available';
     
-    return AppCard(
+    return Dismissible(
+      key: ValueKey('dismiss_${item.cartItemId}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8), // Assuming AppCard has some margin implicitly, wait, AppCard itself doesn't have margin in cart_screen, the list view provides spacing via separatorBuilder. We just need matching border radius.
+        decoration: BoxDecoration(
+          color: Colors.red.shade400,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        child: const Icon(Icons.delete_sweep, color: Colors.white, size: 32),
+      ),
+      confirmDismiss: (direction) async {
+        return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Remove Item', style: TextStyle(fontWeight: FontWeight.bold)),
+            content: const Text('Are you sure you want to remove this item from your cart?'),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('No', style: TextStyle(color: AppColors.subText)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Yes', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+      },
+      onDismissed: (direction) {
+        final messenger = ScaffoldMessenger.of(context);
+        ref.read(cartProvider.notifier).removeItem(item.cartItemId).catchError((e) {
+          final errorMessage = e is ApiException ? e.message : e.toString().replaceAll('Exception: ', '');
+          messenger.showSnackBar(SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+          ));
+        });
+      },
+      child: AppCard(
       onTap: food != null ? () => Navigator.pushNamed(context, '/food-detail', arguments: food) : null,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,7 +439,7 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 
