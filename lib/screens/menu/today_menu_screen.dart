@@ -11,8 +11,9 @@ import '../food/food_detail_screen.dart';
 
 class TodayMenuScreen extends ConsumerStatefulWidget {
   static const String routeName = '/today-menu';
+  final String? preselectedCategoryName;
 
-  const TodayMenuScreen({super.key});
+  const TodayMenuScreen({super.key, this.preselectedCategoryName});
 
   @override
   ConsumerState<TodayMenuScreen> createState() => _TodayMenuScreenState();
@@ -31,6 +32,7 @@ class _TodayMenuScreenState extends ConsumerState<TodayMenuScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedCategoryName = widget.preselectedCategoryName ?? 'All';
     _loadFoods();
   }
 
@@ -44,11 +46,6 @@ class _TodayMenuScreenState extends ConsumerState<TodayMenuScreen> {
       if (!mounted) return;
       setState(() {
         _foods = foods;
-        final categories = _todayCategories;
-        if (_selectedCategoryName != 'All' &&
-            !categories.contains(_selectedCategoryName)) {
-          _selectedCategoryName = 'All';
-        }
       });
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -92,7 +89,8 @@ class _TodayMenuScreenState extends ConsumerState<TodayMenuScreen> {
     try {
       await ref.read(cartProvider.notifier).addItem(food);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${food.name} added to cart')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('${food.name} added to cart')));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(

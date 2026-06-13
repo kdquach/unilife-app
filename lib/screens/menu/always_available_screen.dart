@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/currency_formatter.dart';
 import '../../models/food.dart';
 import '../../models/food_category.dart';
 import '../../services/api_client.dart';
@@ -23,7 +24,8 @@ class AlwaysAvailableScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<AlwaysAvailableScreen> createState() => _AlwaysAvailableScreenState();
+  ConsumerState<AlwaysAvailableScreen> createState() =>
+      _AlwaysAvailableScreenState();
 }
 
 class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
@@ -101,8 +103,8 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
     try {
       final foods = await _foodService.filterFoods(
         categoryId: _selectedCategoryId,
-        minPrice: _selectedMinPrice,
-        maxPrice: _selectedMaxPrice,
+        minPrice: _minPriceParam,
+        maxPrice: _maxPriceParam,
         sortBy: _sortBy,
         sortOrder: _sortOrder,
       );
@@ -143,13 +145,20 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
   bool get _hasPriceRange =>
       _availableMaxPrice > _availableMinPrice && _availableMaxPrice > 0;
 
+  bool get _hasPriceFilter =>
+      _hasPriceRange &&
+      (_selectedMinPrice != _availableMinPrice ||
+          _selectedMaxPrice != _availableMaxPrice);
+
   bool get _hasActiveFilters =>
       _selectedCategoryId != null ||
-      (_hasPriceRange &&
-          (_selectedMinPrice != _availableMinPrice ||
-              _selectedMaxPrice != _availableMaxPrice)) ||
+      _hasPriceFilter ||
       _sortBy != 'createdAt' ||
       _sortOrder != 'desc';
+
+  int? get _minPriceParam => _hasPriceFilter ? _selectedMinPrice : null;
+
+  int? get _maxPriceParam => _hasPriceFilter ? _selectedMaxPrice : null;
 
   void _open(Food food) =>
       Navigator.pushNamed(context, FoodDetailScreen.routeName, arguments: food);
@@ -158,7 +167,8 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
     try {
       await ref.read(cartProvider.notifier).addItem(food);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${food.name} added to cart')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('${food.name} added to cart')));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -185,12 +195,46 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
     await _loadFilteredFoods();
   }
 
+  Future<void> _openStableFilterSheet() async {
+    final selection =
+        await showModalBottomSheet<_AlwaysAvailableFilterSelection>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _AlwaysAvailableFilterSheet(
+        categories: _categories,
+        selectedCategoryId: _selectedCategoryId,
+        availableMinPrice: _availableMinPrice,
+        availableMaxPrice: _availableMaxPrice,
+        selectedMinPrice: _selectedMinPrice,
+        selectedMaxPrice: _selectedMaxPrice,
+        sortBy: _sortBy,
+        sortOrder: _sortOrder,
+      ),
+    );
+
+    if (selection == null || !mounted) return;
+    setState(() {
+      _selectedCategoryId = selection.categoryId;
+      _selectedMinPrice = selection.minPrice;
+      _selectedMaxPrice = selection.maxPrice;
+      _sortBy = selection.sortBy;
+      _sortOrder = selection.sortOrder;
+    });
+    await _loadFilteredFoods();
+  }
+
+  // ignore: unused_element
   Future<void> _openFilterSheet() async {
     String? tempCategoryId = _selectedCategoryId;
     int tempMinPrice = _selectedMinPrice;
     int tempMaxPrice = _selectedMaxPrice;
     String tempSortBy = _sortBy;
     String tempSortOrder = _sortOrder;
+    String? tempPriceError;
     final minPriceController = TextEditingController(
       text: tempMinPrice.toString(),
     );
@@ -275,6 +319,7 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
                           style: TextStyle(fontWeight: FontWeight.w900),
                         ),
                         const SizedBox(height: 8),
+                        _PriceErrorMessage(message: tempPriceError),
                         if (_hasPriceRange) ...[
                           Row(
                             children: [
@@ -282,6 +327,10 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
                                 child: TextField(
                                   controller: minPriceController,
                                   keyboardType: TextInputType.number,
+                                  onChanged: (_) {
+                                    if (tempPriceError == null) return;
+                                    setSheetState(() => tempPriceError = null);
+                                  },
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
                                   ],
@@ -296,6 +345,10 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
                                 child: TextField(
                                   controller: maxPriceController,
                                   keyboardType: TextInputType.number,
+                                  onChanged: (_) {
+                                    if (tempPriceError == null) return;
+                                    setSheetState(() => tempPriceError = null);
+                                  },
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
                                   ],
@@ -318,37 +371,51 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
                           style: TextStyle(fontWeight: FontWeight.w900),
                         ),
                         const SizedBox(height: 10),
-                        DropdownButtonFormField<String>(
-                          initialValue: '${tempSortBy}_$tempSortOrder',
-                          decoration: const InputDecoration(
-                            prefixIcon: Icon(Icons.sort),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppColors.border),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'createdAt_desc',
-                              child: Text('Newest'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'price_asc',
-                              child: Text('Price low to high'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'price_desc',
-                              child: Text('Price high to low'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'name_asc',
-                              child: Text('Name A-Z'),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            if (value == null) return;
-                            final parts = value.split('_');
-                            setSheetState(() {
-                              tempSortBy = parts.first;
-                              tempSortOrder = parts.last;
-                            });
-                          },
+                          child: Row(
+                            children: [
+                              const Icon(Icons.sort, color: AppColors.subText),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: DropdownButton<String>(
+                                  value: '${tempSortBy}_$tempSortOrder',
+                                  isExpanded: true,
+                                  underline: const SizedBox.shrink(),
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: 'createdAt_desc',
+                                      child: Text('Newest'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'price_asc',
+                                      child: Text('Price low to high'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'price_desc',
+                                      child: Text('Price high to low'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'name_asc',
+                                      child: Text('Name A-Z'),
+                                    ),
+                                  ],
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    final parts = value.split('_');
+                                    setSheetState(() {
+                                      tempSortBy = parts.first;
+                                      tempSortOrder = parts.last;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 24),
                         Row(
@@ -366,6 +433,7 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
                                         tempMaxPrice.toString();
                                     tempSortBy = 'createdAt';
                                     tempSortOrder = 'desc';
+                                    tempPriceError = null;
                                   });
                                 },
                                 child: const Text('Clear'),
@@ -375,25 +443,56 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
                             Expanded(
                               child: ElevatedButton(
                                 onPressed: () {
-                                  final minPrice = int.tryParse(
-                                        minPriceController.text.trim(),
-                                      ) ??
-                                      _availableMinPrice;
-                                  final maxPrice = int.tryParse(
-                                        maxPriceController.text.trim(),
-                                      ) ??
-                                      _availableMaxPrice;
-                                  final nextMinPrice = minPrice <= maxPrice
-                                      ? minPrice
-                                      : maxPrice;
-                                  final nextMaxPrice = minPrice <= maxPrice
-                                      ? maxPrice
-                                      : minPrice;
+                                  final minPriceText =
+                                      minPriceController.text.trim();
+                                  final maxPriceText =
+                                      maxPriceController.text.trim();
+                                  final minPrice = int.tryParse(minPriceText);
+                                  final maxPrice = int.tryParse(maxPriceText);
+
+                                  if (_hasPriceRange) {
+                                    if (minPriceText.isEmpty ||
+                                        maxPriceText.isEmpty) {
+                                      setSheetState(
+                                        () => tempPriceError =
+                                            'Please enter both min and max price.',
+                                      );
+                                      return;
+                                    }
+
+                                    if (minPrice == null || maxPrice == null) {
+                                      setSheetState(
+                                        () => tempPriceError =
+                                            'Price must be a valid number.',
+                                      );
+                                      return;
+                                    }
+
+                                    if (minPrice > maxPrice) {
+                                      setSheetState(
+                                        () => tempPriceError =
+                                            'Min price must be less than or equal to max price.',
+                                      );
+                                      return;
+                                    }
+
+                                    if (minPrice < _availableMinPrice ||
+                                        maxPrice > _availableMaxPrice) {
+                                      setSheetState(
+                                        () => tempPriceError =
+                                            'Price must be between ${CurrencyFormatter.vnd(_availableMinPrice)} and ${CurrencyFormatter.vnd(_availableMaxPrice)}.',
+                                      );
+                                      return;
+                                    }
+                                  }
+
                                   Navigator.pop(context);
                                   setState(() {
                                     _selectedCategoryId = tempCategoryId;
-                                    _selectedMinPrice = nextMinPrice;
-                                    _selectedMaxPrice = nextMaxPrice;
+                                    _selectedMinPrice =
+                                        minPrice ?? _availableMinPrice;
+                                    _selectedMaxPrice =
+                                        maxPrice ?? _availableMaxPrice;
                                     _sortBy = tempSortBy;
                                     _sortOrder = tempSortOrder;
                                   });
@@ -452,7 +551,7 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
         actions: [
           IconButton(
             tooltip: 'Filter',
-            onPressed: _isLoading ? null : _openFilterSheet,
+            onPressed: _isLoading ? null : _openStableFilterSheet,
             icon: Badge(
               isLabelVisible: _hasActiveFilters,
               child: const Icon(Icons.tune),
@@ -608,6 +707,376 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
             },
           ),
       ],
+    );
+  }
+}
+
+class _AlwaysAvailableFilterSelection {
+  final String? categoryId;
+  final int minPrice;
+  final int maxPrice;
+  final String sortBy;
+  final String sortOrder;
+
+  const _AlwaysAvailableFilterSelection({
+    required this.categoryId,
+    required this.minPrice,
+    required this.maxPrice,
+    required this.sortBy,
+    required this.sortOrder,
+  });
+}
+
+class _AlwaysAvailableFilterSheet extends StatefulWidget {
+  final List<FoodCategory> categories;
+  final String? selectedCategoryId;
+  final int availableMinPrice;
+  final int availableMaxPrice;
+  final int selectedMinPrice;
+  final int selectedMaxPrice;
+  final String sortBy;
+  final String sortOrder;
+
+  const _AlwaysAvailableFilterSheet({
+    required this.categories,
+    required this.selectedCategoryId,
+    required this.availableMinPrice,
+    required this.availableMaxPrice,
+    required this.selectedMinPrice,
+    required this.selectedMaxPrice,
+    required this.sortBy,
+    required this.sortOrder,
+  });
+
+  @override
+  State<_AlwaysAvailableFilterSheet> createState() =>
+      _AlwaysAvailableFilterSheetState();
+}
+
+class _AlwaysAvailableFilterSheetState
+    extends State<_AlwaysAvailableFilterSheet> {
+  late String? _categoryId;
+  late int _minPrice;
+  late int _maxPrice;
+  late String _sortBy;
+  late String _sortOrder;
+  late final TextEditingController _minPriceController;
+  late final TextEditingController _maxPriceController;
+  String? _priceError;
+
+  bool get _hasPriceRange =>
+      widget.availableMaxPrice > widget.availableMinPrice &&
+      widget.availableMaxPrice > 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _categoryId = widget.selectedCategoryId;
+    _minPrice = widget.selectedMinPrice;
+    _maxPrice = widget.selectedMaxPrice;
+    _sortBy = widget.sortBy;
+    _sortOrder = widget.sortOrder;
+    _minPriceController = TextEditingController(text: _minPrice.toString());
+    _maxPriceController = TextEditingController(text: _maxPrice.toString());
+  }
+
+  @override
+  void dispose() {
+    _minPriceController.dispose();
+    _maxPriceController.dispose();
+    super.dispose();
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _categoryId = null;
+      _minPrice = widget.availableMinPrice;
+      _maxPrice = widget.availableMaxPrice;
+      _minPriceController.text = _minPrice.toString();
+      _maxPriceController.text = _maxPrice.toString();
+      _sortBy = 'createdAt';
+      _sortOrder = 'desc';
+      _priceError = null;
+    });
+  }
+
+  void _clearPriceError() {
+    if (_priceError == null) return;
+    setState(() => _priceError = null);
+  }
+
+  void _applyFilters() {
+    final minPriceText = _minPriceController.text.trim();
+    final maxPriceText = _maxPriceController.text.trim();
+    final minPrice = int.tryParse(minPriceText);
+    final maxPrice = int.tryParse(maxPriceText);
+
+    if (_hasPriceRange) {
+      if (minPriceText.isEmpty || maxPriceText.isEmpty) {
+        setState(
+          () => _priceError = 'Please enter both min and max price.',
+        );
+        return;
+      }
+      if (minPrice == null || maxPrice == null) {
+        setState(() => _priceError = 'Price must be a valid number.');
+        return;
+      }
+      if (minPrice > maxPrice) {
+        setState(
+          () => _priceError =
+              'Min price must be less than or equal to max price.',
+        );
+        return;
+      }
+      if (minPrice < widget.availableMinPrice ||
+          maxPrice > widget.availableMaxPrice) {
+        setState(
+          () => _priceError =
+              'Price must be between ${CurrencyFormatter.vnd(widget.availableMinPrice)} and ${CurrencyFormatter.vnd(widget.availableMaxPrice)}.',
+        );
+        return;
+      }
+    }
+
+    Navigator.pop(
+      context,
+      _AlwaysAvailableFilterSelection(
+        categoryId: _categoryId,
+        minPrice: minPrice ?? widget.availableMinPrice,
+        maxPrice: maxPrice ?? widget.availableMaxPrice,
+        sortBy: _sortBy,
+        sortOrder: _sortOrder,
+      ),
+    );
+  }
+
+  Widget _filterChoiceChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onSelected,
+  }) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onSelected(),
+      backgroundColor: Colors.white,
+      selectedColor: AppColors.primary,
+      labelStyle: TextStyle(
+        color: selected ? Colors.white : AppColors.text,
+        fontWeight: FontWeight.w800,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: selected ? AppColors.primary : AppColors.border,
+          width: 1,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sortValue = '${_sortBy}_$_sortOrder';
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          18,
+          24,
+          MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Filter foods',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Category',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _filterChoiceChip(
+                    label: 'All',
+                    selected: _categoryId == null,
+                    onSelected: () => setState(() => _categoryId = null),
+                  ),
+                  ...widget.categories.map(
+                    (category) => _filterChoiceChip(
+                      label: category.name,
+                      selected: _categoryId == category.id,
+                      onSelected: () {
+                        setState(() => _categoryId = category.id);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              const Text(
+                'Price',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 8),
+              _PriceErrorMessage(message: _priceError),
+              if (_hasPriceRange) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _minPriceController,
+                        keyboardType: TextInputType.number,
+                        onChanged: (_) => _clearPriceError(),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: const InputDecoration(
+                          labelText: 'Min price',
+                          suffixText: 'VND',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _maxPriceController,
+                        keyboardType: TextInputType.number,
+                        onChanged: (_) => _clearPriceError(),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: const InputDecoration(
+                          labelText: 'Max price',
+                          suffixText: 'VND',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else
+                const Text(
+                  'No price range available',
+                  style: TextStyle(color: AppColors.subText),
+                ),
+              const SizedBox(height: 18),
+              const Text(
+                'Sort by',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.sort, color: AppColors.subText),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: DropdownButton<String>(
+                        value: sortValue,
+                        isExpanded: true,
+                        underline: const SizedBox.shrink(),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'createdAt_desc',
+                            child: Text('Newest'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'price_asc',
+                            child: Text('Price low to high'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'price_desc',
+                            child: Text('Price high to low'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'name_asc',
+                            child: Text('Name A-Z'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          final parts = value.split('_');
+                          setState(() {
+                            _sortBy = parts.first;
+                            _sortOrder = parts.last;
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _resetFilters,
+                      child: const Text('Clear'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _applyFilters,
+                      child: const Text('Apply'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PriceErrorMessage extends StatelessWidget {
+  final String? message;
+
+  const _PriceErrorMessage({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: message == null ? 0 : 8),
+      child: Text(
+        message ?? '',
+        style: const TextStyle(
+          color: AppColors.error,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }

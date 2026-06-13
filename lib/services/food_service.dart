@@ -70,6 +70,10 @@ class FoodService {
     );
   }
 
+  Future<FoodFilterOptions> getAllFoodFilterOptions({String? token}) {
+    return getFoodFilterOptions(token: token, kind: null);
+  }
+
   Future<List<Food>> filterFoods({
     String? token,
     String? kind = 'alwaysAvailable',
