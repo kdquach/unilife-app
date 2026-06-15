@@ -7,7 +7,9 @@ import '../order/order_detail_screen.dart';
 class PaymentSuccessScreen extends StatelessWidget {
   static const String routeName = '/payment-success';
 
-  const PaymentSuccessScreen({super.key});
+  final String orderId;
+
+  const PaymentSuccessScreen({super.key, required this.orderId});
 
   @override
   Widget build(BuildContext context) {
@@ -44,9 +46,13 @@ class PaymentSuccessScreen extends StatelessWidget {
                   style: TextStyle(color: AppColors.subText, height: 1.4)),
               const Spacer(),
               AppButton(
-                  label: 'Track Order',
-                  onPressed: () => Navigator.pushReplacementNamed(
-                      context, OrderDetailScreen.routeName)),
+                label: 'Track Order',
+                onPressed: () => Navigator.pushReplacementNamed(
+                  context,
+                  OrderDetailScreen.routeName,
+                  arguments: orderId,
+                ),
+              ),
             ],
           ),
         ),
