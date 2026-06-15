@@ -69,9 +69,19 @@ class AppRoutes {
           ),
         );
       case TodayMenuScreen.routeName:
-        return _route(const TodayMenuScreen());
+        final arguments = settings.arguments;
+        String? categoryName;
+        if (arguments is Map) {
+          categoryName = arguments['categoryName'] as String?;
+        }
+        return _route(TodayMenuScreen(preselectedCategoryName: categoryName));
       case WeeklyMenuScreen.routeName:
-        return _route(const WeeklyMenuScreen());
+        final arguments = settings.arguments;
+        String? categoryName;
+        if (arguments is Map) {
+          categoryName = arguments['categoryName'] as String?;
+        }
+        return _route(WeeklyMenuScreen(preselectedCategoryName: categoryName));
       case AlwaysAvailableScreen.routeName:
         final arguments = settings.arguments;
         String? categoryId;
