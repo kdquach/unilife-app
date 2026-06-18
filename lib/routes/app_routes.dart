@@ -8,7 +8,7 @@ import '../screens/auth/register_screen.dart';
 import '../screens/auth/reset_password_screen.dart';
 import '../screens/auth/verify_register_otp_screen.dart';
 import '../screens/cart/cart_screen.dart';
-import '../screens/cart/checkout_data_note_screen.dart';
+import '../screens/cart/checkout_screen.dart';
 import '../screens/food/food_detail_screen.dart';
 import '../screens/home/main_shell.dart';
 import '../screens/menu/always_available_screen.dart';
@@ -103,8 +103,8 @@ class AppRoutes {
         return _route(FoodDetailScreen(food: settings.arguments as Food));
       case CartScreen.routeName:
         return _route(const CartScreen());
-      case CheckoutDataNoteScreen.routeName:
-        return _route(const CheckoutDataNoteScreen());
+      case CheckoutScreen.routeName:
+        return _route(const CheckoutScreen());
       case SepayPaymentScreen.routeName:
         final order = settings.arguments as Order;
         return _route(SepayPaymentScreen(order: order));

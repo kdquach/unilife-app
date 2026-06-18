@@ -37,4 +37,13 @@ class OrderService {
   Future<void> cancelOrder(String id, {String? token}) async {
     await _client.patchJson('/orders/$id', {'status': 'CANCELLED'}, token: token);
   }
+
+  Future<Order> checkout({String? token}) async {
+    final response = await _client.postJson('/orders/checkout', {}, token: token);
+    final data = response['data'];
+    if (data is! Map<String, dynamic>) {
+      throw ApiException(statusCode: 500, message: 'Invalid checkout response data');
+    }
+    return Order.fromJson(data);
+  }
 }
