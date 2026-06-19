@@ -88,4 +88,15 @@ class CartItemDto {
       subtotal: (json['subtotal'] as num?)?.toInt() ?? 0,
     );
   }
+
+  Map<String, dynamic> toPayload() {
+    final backendItemType = (food?.isMenuFood ?? false) ? 'MENU_ITEM' : 'REGULAR_FOOD';
+    return {
+      'itemType': backendItemType,
+      'menuScheduleItemId': (food?.isMenuFood ?? false) ? menuScheduleItemId : null,
+      'foodId': (food?.isAlwaysAvailable ?? false) ? food?.id : null,
+      'quantity': quantity,
+      'unitPrice': food?.price ?? 0,
+    };
+  }
 }

@@ -9,7 +9,7 @@ import '../../models/cart.dart';
 import '../../states/cart_provider.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
-import '../cart/checkout_data_note_screen.dart';
+import '../cart/checkout_screen.dart';
 
 class CartScreen extends ConsumerWidget {
   static const String routeName = '/cart';
@@ -71,7 +71,7 @@ class CartScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
                 AppButton(
                   label: 'Checkout', 
-                  onPressed: validItems.isNotEmpty ? () => Navigator.pushNamed(context, CheckoutDataNoteScreen.routeName) : null,
+                  onPressed: validItems.isNotEmpty ? () => Navigator.pushNamed(context, CheckoutScreen.routeName) : null,
                 ),
               ],
             );

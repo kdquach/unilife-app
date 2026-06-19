@@ -1,3 +1,4 @@
+import '../models/cart.dart';
 import '../models/cart_item.dart';
 import 'api_client.dart';
 
@@ -22,8 +23,8 @@ class CartService {
     return _apiClient.deleteJson('/carts/my/items/$cartItemId', token: token);
   }
 
-  Future<Map<String, dynamic>> checkout(List<CartItem> items, {String? token}) {
-    return _apiClient.postJson('/orders', {
+  Future<Map<String, dynamic>> checkout(List<CartItemDto> items, {String? token}) {
+    return _apiClient.postJson('/orders/checkout', {
       'items': items.map((item) => item.toPayload()).toList(),
       'paymentMethod': 'SEPAY',
     }, token: token);
