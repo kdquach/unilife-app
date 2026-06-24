@@ -9,6 +9,7 @@ import '../../widgets/app_button.dart';
 import '../home/main_shell.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
+import '../admin/admin_main_shell.dart';
 
 class LoginScreen extends StatefulWidget {
   static const String routeName = '/login';
@@ -34,43 +35,63 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    FocusScope.of(context).unfocus();
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-    if (email.isEmpty || password.isEmpty) {
-      setState(() => _errorMessage = 'Please enter email and password.');
-      return;
-    }
+  FocusScope.of(context).unfocus();
 
+  final email = _emailController.text.trim();
+  final password = _passwordController.text;
+
+  if (email.isEmpty || password.isEmpty) {
+    setState(() => _errorMessage = 'Please enter email and password.');
+    return;
+  }
+
+  setState(() {
+    _isLoading = true;
+    _errorMessage = null;
+  });
+
+  try {
+  final response =
+      await _authService.login(email: email, password: password);
+
+  final String? token = response['data']['accessToken'];
+  final String role = response['data']['user']['role'];
+
+  if (token == null) {
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _errorMessage = 'Login succeeded but missing token.';
     });
+    return;
+  }
 
-    try {
-      final response =
-          await _authService.login(email: email, password: password);
-      final token = AuthService.extractAccessToken(response);
-      if (token == null) {
-        if (!mounted) return;
-        setState(() => _errorMessage = 'Login succeeded but missing token.');
-        return;
-      }
-      await AuthStorage.saveToken(token);
-      if (!mounted) return;
-      Navigator.pushReplacementNamed(context, MainShell.routeName);
-    } on ApiException catch (error) {
-      if (!mounted) return;
-      setState(() => _errorMessage = error.message);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _errorMessage = 'Login failed. Please try again.');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+  await AuthStorage.saveToken(token);
+  await AuthStorage.saveRole(role);
+
+  if (!mounted) return;
+
+  if (role == 'ADMIN') {
+    Navigator.pushReplacementNamed(
+  context,
+  AdminMainShell.routeName,
+);
+  } else {
+    Navigator.pushReplacementNamed(
+      context,
+      MainShell.routeName,
+    );
+  }
+} on ApiException catch (error) {
+    if (!mounted) return;
+    setState(() => _errorMessage = error.message);
+  } catch (_) {
+    if (!mounted) return;
+    setState(() => _errorMessage = 'Login failed. Please try again.');
+  } finally {
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {

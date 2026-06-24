@@ -28,6 +28,8 @@ import '../screens/rating/rating_list_screen.dart';
 import '../screens/rating/rating_success_screen.dart';
 import '../screens/splash/splash_screen.dart';
 import '../screens/states/ui_states_screen.dart';
+import '../screens/admin/admin_dashboard_screen.dart';
+import '../screens/admin/admin_main_shell.dart';
 
 class AppRoutes {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -134,6 +136,8 @@ class AppRoutes {
         return _route(const ChangePasswordScreen());
       case UiStatesScreen.routeName:
         return _route(const UiStatesScreen());
+      case AdminMainShell.routeName:
+        return _route(const AdminMainShell());
       default:
         return _route(const LoginScreen());
     }
