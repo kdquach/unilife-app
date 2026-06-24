@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/food.dart';
 import '../models/order.dart';
+import '../models/user_notification.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
@@ -119,7 +120,12 @@ class AppRoutes {
       case NotificationsScreen.routeName:
         return _route(const NotificationsScreen());
       case NotificationDetailScreen.routeName:
-        return _route(const NotificationDetailScreen());
+        final notification = settings.arguments is UserNotification
+            ? settings.arguments as UserNotification
+            : null;
+        return _route(
+          NotificationDetailScreen(initialNotification: notification),
+        );
       case RatingListScreen.routeName:
         return _route(const RatingListScreen());
       case CreateRatingScreen.routeName:

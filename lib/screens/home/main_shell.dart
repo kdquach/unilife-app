@@ -1,8 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../models/user_notification.dart';
+import '../../services/api_client.dart';
 import '../../services/auth_storage.dart';
+import '../../services/notification_service.dart';
+import '../../services/notification_socket_service.dart';
 import '../../states/cart_provider.dart';
 import '../cart/cart_screen.dart';
 import '../auth/login_screen.dart';
@@ -34,6 +40,13 @@ class MainShell extends ConsumerStatefulWidget {
 class _MainShellState extends ConsumerState<MainShell> {
   late int _index;
   late final List<Widget> _screens;
+  final NotificationService _notificationService =
+      NotificationService(ApiClient());
+  final NotificationSocketService _notificationSocketService =
+      NotificationSocketService();
+  StreamSubscription<UserNotification>? _notificationSubscription;
+  String? _notificationToken;
+  int _notificationUnreadCount = 0;
 
   @override
   void initState() {
@@ -50,6 +63,38 @@ class _MainShellState extends ConsumerState<MainShell> {
       const OrderListScreen(showBackButton: false),
       const ProfileScreen(),
     ];
+    _initializeNotifications();
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    _notificationSocketService.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initializeNotifications() async {
+    final token = await AuthStorage.getToken();
+    if (!mounted || token == null || token.isEmpty) return;
+    _notificationToken = token;
+    await _refreshNotificationCount();
+    _notificationSubscription = _notificationSocketService.notifications.listen(
+      (notification) {
+        if (!mounted || notification.isRead) return;
+        setState(() => _notificationUnreadCount += 1);
+      },
+    );
+    _notificationSocketService.connect(token);
+  }
+
+  Future<void> _refreshNotificationCount() async {
+    final token = _notificationToken;
+    if (token == null || token.isEmpty) return;
+    try {
+      final result = await _notificationService.getMine(token: token, limit: 1);
+      if (!mounted) return;
+      setState(() => _notificationUnreadCount = result.unreadCount);
+    } catch (_) {}
   }
 
   Future<void> _handleDestinationSelected(int value) async {
@@ -112,9 +157,16 @@ class _MainShellState extends ConsumerState<MainShell> {
           ? FloatingActionButton.small(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              onPressed: () =>
-                  Navigator.pushNamed(context, NotificationsScreen.routeName),
-              child: const Icon(Icons.notifications_outlined),
+              onPressed: () async {
+                await Navigator.pushNamed(
+                    context, NotificationsScreen.routeName);
+                await _refreshNotificationCount();
+              },
+              child: Badge(
+                isLabelVisible: _notificationUnreadCount > 0,
+                label: Text(_notificationUnreadCount.toString()),
+                child: const Icon(Icons.notifications_outlined),
+              ),
             )
           : null,
     );

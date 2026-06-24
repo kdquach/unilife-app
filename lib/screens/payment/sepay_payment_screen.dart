@@ -35,8 +35,9 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
   Future<void> _handleBackNavigation() async {
     final state = ref.read(sepayPaymentProvider);
     final currentOrder = state.orderState.value ?? widget.order;
-    final isSuccess = currentOrder.status == 'CONFIRMED' || currentOrder.paymentStatus == 'PAID';
-    
+    final isSuccess = currentOrder.status == 'CONFIRMED' ||
+        currentOrder.paymentStatus == 'PAID';
+
     if (isSuccess) {
       Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
       return;
@@ -66,9 +67,12 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
                 ),
                 const Row(
                   children: [
-                    Icon(Icons.info_outline_rounded, color: Colors.blue, size: 28),
+                    Icon(Icons.info_outline_rounded,
+                        color: Colors.blue, size: 28),
                     SizedBox(width: 12),
-                    Text('Payment Incomplete', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text('Payment Incomplete',
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -85,10 +89,13 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                       elevation: 0,
                     ),
-                    child: const Text('Stay & Pay', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    child: const Text('Stay & Pay',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -100,9 +107,12 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.text,
                       side: BorderSide(color: Colors.grey.shade300, width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                     ),
-                    child: const Text('Pay Later (in My Orders)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    child: const Text('Pay Later (in My Orders)',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -113,9 +123,12 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
                     onPressed: () => Navigator.pop(context, 'cancel'),
                     style: TextButton.styleFrom(
                       foregroundColor: Colors.red,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                     ),
-                    child: const Text('Cancel Order & Edit Cart', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    child: const Text('Cancel Order & Edit Cart',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
                   ),
                 ),
               ],
@@ -129,9 +142,11 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
       final confirmLater = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Warning'),
-          content: const Text('If you pay later, your current cart will be empty as items are moved to this order. Are you sure you want to leave?'),
+          content: const Text(
+              'If you pay later, your current cart will be empty as items are moved to this order. Are you sure you want to leave?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -139,7 +154,9 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Leave', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              child: const Text('Leave',
+                  style: TextStyle(
+                      color: Colors.red, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -152,24 +169,29 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (_) => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        builder: (_) => const Center(
+            child: CircularProgressIndicator(color: AppColors.primary)),
       );
 
       try {
         final token = await AuthStorage.getToken();
-        await OrderService(ApiClient()).cancelOrder(widget.order.id, token: token);
-        
+        await OrderService(ApiClient())
+            .cancelOrder(widget.order.id, token: token);
+
         // Restore cart
         final cartNotifier = ref.read(cartProvider.notifier);
         for (final item in widget.order.items) {
-           try {
-             await cartNotifier.addItem(item.food, quantity: item.quantity);
-           } catch (e) {
-             // Ignore individual errors during restore
-           }
+          try {
+            await cartNotifier.addItem(
+              item.food,
+              quantity: item.quantity,
+              notify: false,
+            );
+          } catch (e) {
+            // Ignore individual errors during restore
+          }
         }
         await cartNotifier.refreshCart();
-
       } catch (e) {
         // Handle error if needed, but still navigate away
       }
@@ -185,11 +207,14 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(sepayPaymentProvider);
     final currentOrder = state.orderState.value ?? widget.order;
-    final isSuccess = currentOrder.status == 'CONFIRMED' || currentOrder.paymentStatus == 'PAID';
-    final isBackendExpired = currentOrder.status == 'CANCELLED' || 
-                             currentOrder.paymentStatus == 'EXPIRED' || 
-                             (currentOrder.paymentInfo?.qrCodeUrl == null && !isSuccess);
-    final isExpired = isBackendExpired || (state.remainingSeconds <= 0 && isBackendExpired); // Only hide if backend confirms
+    final isSuccess = currentOrder.status == 'CONFIRMED' ||
+        currentOrder.paymentStatus == 'PAID';
+    final isBackendExpired = currentOrder.status == 'CANCELLED' ||
+        currentOrder.paymentStatus == 'EXPIRED' ||
+        (currentOrder.paymentInfo?.qrCodeUrl == null && !isSuccess);
+    final isExpired = isBackendExpired ||
+        (state.remainingSeconds <= 0 &&
+            isBackendExpired); // Only hide if backend confirms
     final isPolling = !isSuccess && !isBackendExpired;
 
     return PopScope(
@@ -201,7 +226,8 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
       child: Scaffold(
         backgroundColor: Colors.grey.shade50,
         appBar: AppBar(
-          title: const Text('SePay Payment', style: TextStyle(fontWeight: FontWeight.w800)),
+          title: const Text('SePay Payment',
+              style: TextStyle(fontWeight: FontWeight.w800)),
           centerTitle: true,
           elevation: 0,
           backgroundColor: Colors.transparent,
