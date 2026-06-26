@@ -31,6 +31,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   List<UserNotification> _notifications = [];
   bool _isLoading = true;
   String? _error;
+  bool _requiresLogin = false;
   String? _token;
   int _unreadCount = 0;
 
@@ -55,7 +56,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (token == null || token.isEmpty) {
       setState(() {
         _isLoading = false;
-        _error = 'Please log in to view notifications.';
+        _requiresLogin = true;
+        _error = null;
       });
       return;
     }
@@ -69,6 +71,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (_token == null || _token!.isEmpty) return;
     setState(() {
       _isLoading = true;
+      _requiresLogin = false;
       _error = null;
     });
 
@@ -79,6 +82,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _notifications = result.items;
         _unreadCount = result.unreadCount;
         _isLoading = false;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      if (error.statusCode == 401) {
+        await AuthStorage.clearToken();
+        setState(() {
+          _token = null;
+          _notifications = [];
+          _unreadCount = 0;
+          _requiresLogin = true;
+          _isLoading = false;
+          _error = null;
+        });
+        return;
+      }
+      setState(() {
+        _isLoading = false;
+        _error = error.message;
       });
     } catch (error) {
       if (!mounted) return;
@@ -142,14 +163,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    if (_requiresLogin) {
+      return _NotificationMessage(
+        icon: Icons.lock_outline_rounded,
+        title: 'Please log in to view notifications.',
+        actionLabel: 'Login',
+        onAction: () => Navigator.pushNamed(context, LoginScreen.routeName),
+      );
+    }
+
     if (_error != null) {
       return _NotificationMessage(
         icon: Icons.notifications_off_outlined,
         title: _error!,
-        actionLabel: _token == null ? 'Login' : 'Try again',
-        onAction: _token == null
-            ? () => Navigator.pushNamed(context, LoginScreen.routeName)
-            : _loadNotifications,
+        actionLabel: 'Try again',
+        onAction: _loadNotifications,
       );
     }
 
