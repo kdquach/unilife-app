@@ -15,7 +15,8 @@ class MenuSchedule {
 
   factory MenuSchedule.fromJson(Map<String, dynamic> json) {
     final rawDate = json['date'] as String?;
-    final date = rawDate != null ? DateTime.parse(rawDate) : DateTime.now();
+    final date =
+        rawDate != null ? DateTime.parse(rawDate).toLocal() : DateTime.now();
 
     final itemsRaw = json['items'] as List? ?? [];
     final items = itemsRaw
