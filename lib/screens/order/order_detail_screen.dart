@@ -56,7 +56,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
     try {
       final token = await AuthStorage.getToken();
-      final order = await _orderService.getOrderById(widget.orderId, token: token);
+      final order =
+          await _orderService.getOrderById(widget.orderId, token: token);
 
       if (!mounted) return;
       setState(() {
@@ -97,7 +98,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   Future<void> _cancelOrder() async {
     if (_order == null) return;
-    
+
     // Pop the bottom sheet first
     Navigator.pop(context);
 
@@ -118,13 +119,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
       final cleanMessage = error is ApiException
           ? error.message
-          : error.toString().replaceFirst('ApiException: ', '').replaceFirst('Exception: ', '');
+          : error
+              .toString()
+              .replaceFirst('ApiException: ', '')
+              .replaceFirst('Exception: ', '');
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
           backgroundColor: const Color(0xFF1E293B),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           content: Row(
             children: [
@@ -173,7 +178,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       case 'placed':
         return true;
       case 'paid':
-        return s == 'PAID' || s == 'PREPARING' || s == 'READY' || s == 'COMPLETED';
+        return s == 'PAID' ||
+            s == 'PREPARING' ||
+            s == 'READY' ||
+            s == 'COMPLETED';
       case 'preparing':
         return s == 'PREPARING' || s == 'READY' || s == 'COMPLETED';
       case 'ready':
@@ -278,6 +286,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final order = _order!;
     final s = order.status.toUpperCase();
     final canCancel = s == 'PENDING' || s == 'PAID';
+    final canRate =
+        s == 'COMPLETED' && order.paymentStatus.toUpperCase() == 'PAID';
 
     return Scaffold(
       appBar: AppBar(title: Text('Order #${order.code}')),
@@ -313,17 +323,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       children: [
                         const Text(
                           'Order Status',
-                          style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           order.status,
-                          style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 26,
+                              fontWeight: FontWeight.w900),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           _getStatusMessage(order.status),
-                          style: const TextStyle(color: Colors.white70, fontSize: 13),
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 13),
                         ),
                       ],
                     ),
@@ -343,12 +360,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       children: [
                         const Text(
                           'QUEUE',
-                          style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w800),
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           order.queueNumber,
-                          style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 26,
+                              fontWeight: FontWeight.w900),
                         ),
                       ],
                     ),
@@ -359,7 +382,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             const SizedBox(height: 26),
             Row(
               children: [
-                const Text('Order Timeline', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                const Text('Order Timeline',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                 if (!_isTerminalStatus(order.status)) ...[
                   const SizedBox(width: 8),
                   const _PulsingDot(),
@@ -395,7 +420,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                   _ProgressStep(
                     title: 'Preparing Food',
-                    description: 'Kitchen staff is preparing your delicious meal.',
+                    description:
+                        'Kitchen staff is preparing your delicious meal.',
                     done: _isStepDone(order.status, 'preparing'),
                     isActive: _isStepActive(order.status, 'preparing'),
                   ),
@@ -414,15 +440,20 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Order Info', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                  const Text('Order Info',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 16),
                   _buildDetailRow('Order Code', order.code),
-                  _buildDetailRow('Placed At', _formatDateTime(order.createdAt)),
+                  _buildDetailRow(
+                      'Placed At', _formatDateTime(order.createdAt)),
                   _buildDetailRow('Payment Method', order.paymentMethod),
                   _buildDetailRow(
                     'Payment Status',
                     order.paymentStatus,
-                    valueColor: order.paymentStatus.toUpperCase() == 'PAID' ? AppColors.success : AppColors.warning,
+                    valueColor: order.paymentStatus.toUpperCase() == 'PAID'
+                        ? AppColors.success
+                        : AppColors.warning,
                   ),
                 ],
               ),
@@ -432,7 +463,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Order Items', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                  const Text('Order Items',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 16),
                   ...order.items.map((item) => _buildOrderItemRow(item)),
                   const Padding(
@@ -442,10 +475,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Total Price', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                      const Text('Total Price',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w900)),
                       Text(
                         CurrencyFormatter.vnd(order.totalPrice),
-                        style: const TextStyle(color: AppColors.primary, fontSize: 20, fontWeight: FontWeight.w900),
+                        style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900),
                       ),
                     ],
                   ),
@@ -453,21 +491,32 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ),
             ),
             const SizedBox(height: 28),
-            Row(
-              children: [
-                if (canCancel)
-                  Expanded(child: AppButton(label: 'Cancel', danger: true, onPressed: () => _showCancelDialog(context))),
-                if (canCancel)
-                  const SizedBox(width: 12),
-                Expanded(
-                  child: AppButton(
-                    label: 'Rate Meal',
-                    secondary: true,
-                    onPressed: () => Navigator.pushNamed(context, CreateRatingScreen.routeName),
-                  ),
-                ),
-              ],
-            ),
+            if (canCancel || canRate)
+              Row(
+                children: [
+                  if (canCancel)
+                    Expanded(
+                      child: AppButton(
+                        label: 'Cancel',
+                        danger: true,
+                        onPressed: () => _showCancelDialog(context),
+                      ),
+                    ),
+                  if (canCancel && canRate) const SizedBox(width: 12),
+                  if (canRate)
+                    Expanded(
+                      child: AppButton(
+                        label: 'Rate Meal',
+                        secondary: true,
+                        onPressed: () => Navigator.pushNamed(
+                          context,
+                          CreateRatingScreen.routeName,
+                          arguments: CreateRatingArgs(order: order),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
           ],
         ),
       ),
@@ -476,7 +525,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   Widget _buildOrderItemRow(CartItem item) {
     final imageUrl = _resolvedImageUrl(item.food);
-    
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -491,13 +540,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: imageUrl == null
-                  ? const Icon(Icons.fastfood, color: AppColors.primary, size: 24)
+                  ? const Icon(Icons.fastfood,
+                      color: AppColors.primary, size: 24)
                   : Image.network(
                       imageUrl,
                       width: 48,
                       height: 48,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Icon(Icons.fastfood, color: AppColors.primary, size: 24),
+                      errorBuilder: (_, __, ___) => const Icon(Icons.fastfood,
+                          color: AppColors.primary, size: 24),
                     ),
             ),
           ),
@@ -508,12 +559,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               children: [
                 Text(
                   item.food.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Quantity: ${item.quantity} · ${CurrencyFormatter.vnd(item.food.price)} each',
-                  style: const TextStyle(color: AppColors.subText, fontSize: 12),
+                  style:
+                      const TextStyle(color: AppColors.subText, fontSize: 12),
                 ),
               ],
             ),
@@ -561,15 +614,26 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Cancel this order?', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+            const Text('Cancel this order?',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
             const SizedBox(height: 12),
-            const Text('You can cancel only before the kitchen starts final preparation.', style: TextStyle(color: AppColors.subText)),
+            const Text(
+                'You can cancel only before the kitchen starts final preparation.',
+                style: TextStyle(color: AppColors.subText)),
             const SizedBox(height: 24),
             Row(
               children: [
-                Expanded(child: AppButton(label: 'Keep Order', secondary: true, onPressed: () => Navigator.pop(context))),
+                Expanded(
+                    child: AppButton(
+                        label: 'Keep Order',
+                        secondary: true,
+                        onPressed: () => Navigator.pop(context))),
                 const SizedBox(width: 12),
-                Expanded(child: AppButton(label: 'Cancel Order', danger: true, onPressed: _cancelOrder)),
+                Expanded(
+                    child: AppButton(
+                        label: 'Cancel Order',
+                        danger: true,
+                        onPressed: _cancelOrder)),
               ],
             ),
           ],
@@ -610,7 +674,9 @@ class _ProgressStep extends StatelessWidget {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: done ? AppColors.primary : (isActive ? AppColors.primarySoft : Colors.white),
+                color: done
+                    ? AppColors.primary
+                    : (isActive ? AppColors.primarySoft : Colors.white),
                 border: Border.all(
                   color: dotColor,
                   width: 2,
@@ -651,7 +717,8 @@ class _ProgressStep extends StatelessWidget {
                   title,
                   style: TextStyle(
                     fontSize: 15,
-                    fontWeight: done || isActive ? FontWeight.bold : FontWeight.w500,
+                    fontWeight:
+                        done || isActive ? FontWeight.bold : FontWeight.w500,
                     color: textColor,
                   ),
                 ),
@@ -680,7 +747,8 @@ class _PulsingDot extends StatefulWidget {
   State<_PulsingDot> createState() => _PulsingDotState();
 }
 
-class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderStateMixin {
+class _PulsingDotState extends State<_PulsingDot>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
 

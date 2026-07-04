@@ -39,35 +39,36 @@ class ProfileActionsList extends StatelessWidget {
           iconColor: Colors.orange,
           title: 'Edit Profile',
           subtitle: 'Update your display name and contact details',
-          onTap: () => Navigator.pushNamed(context, EditProfileScreen.routeName),
+          onTap: () =>
+              Navigator.pushNamed(context, EditProfileScreen.routeName),
         ),
         ProfileMenuOption(
           icon: Icons.camera_alt_outlined,
           iconColor: Colors.teal,
           title: 'Upload Avatar',
           subtitle: 'Change or upload a new profile picture',
-          onTap: () => Navigator.pushNamed(context, UploadAvatarScreen.routeName),
+          onTap: () =>
+              Navigator.pushNamed(context, UploadAvatarScreen.routeName),
         ),
         ProfileMenuOption(
           icon: Icons.lock_outline_rounded,
           iconColor: Colors.indigo,
           title: 'Change Password',
           subtitle: 'Secure your account with a new password',
-          onTap: () => Navigator.pushNamed(context, ChangePasswordScreen.routeName),
+          onTap: () =>
+              Navigator.pushNamed(context, ChangePasswordScreen.routeName),
         ),
         const SizedBox(height: 24),
-
         _buildSectionTitle('My Activity'),
         const SizedBox(height: 12),
         ProfileMenuOption(
           icon: Icons.star_border_rounded,
           iconColor: Colors.amber,
           title: 'My Ratings',
-          subtitle: 'View and manage food reviews you have submitted',
+          subtitle: 'View and manage reviews you have submitted',
           onTap: () => Navigator.pushNamed(context, RatingListScreen.routeName),
         ),
         const SizedBox(height: 24),
-
         _buildSectionTitle('App Utilities'),
         const SizedBox(height: 12),
         ProfileMenuOption(
