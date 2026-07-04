@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../models/food.dart';
 import '../models/order.dart';
-import '../models/customer_rating.dart';
 import '../models/user_notification.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
@@ -130,18 +129,7 @@ class AppRoutes {
       case RatingListScreen.routeName:
         return _route(const RatingListScreen());
       case CreateRatingScreen.routeName:
-        final arguments = settings.arguments;
-        Order? order;
-        CustomerRating? rating;
-        if (arguments is CreateRatingArgs) {
-          order = arguments.order;
-          rating = arguments.rating;
-        } else if (arguments is Order) {
-          order = arguments;
-        } else if (arguments is CustomerRating) {
-          rating = arguments;
-        }
-        return _route(CreateRatingScreen(initialOrder: order, rating: rating));
+        return _route(const CreateRatingScreen());
       case RatingSuccessScreen.routeName:
         return _route(const RatingSuccessScreen());
       case EditProfileScreen.routeName:
