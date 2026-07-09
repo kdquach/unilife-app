@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
-import '../../models/customer_rating.dart';
 import '../../models/food.dart';
 import '../../services/api_client.dart';
 import '../../states/cart_provider.dart';
 import '../../services/auth_storage.dart';
 import '../../services/food_service.dart';
-import '../../services/rating_service.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/status_badge.dart';
 import '../auth/login_screen.dart';
@@ -29,22 +26,17 @@ class FoodDetailScreen extends ConsumerStatefulWidget {
 
 class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
   final FoodService _foodService = FoodService(ApiClient());
-  final RatingService _ratingService = RatingService(ApiClient());
 
   late Food _food;
-  List<CustomerRating> _ratings = [];
   int quantity = 1;
   bool _isLoadingDetail = false;
-  bool _isLoadingRatings = false;
   String? _detailError;
-  String? _ratingsError;
 
   @override
   void initState() {
     super.initState();
     _food = widget.food;
     _loadFoodDetail();
-    _loadFoodRatings();
   }
 
   Future<void> _loadFoodDetail() async {
@@ -63,24 +55,6 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
       if (mounted) setState(() => _detailError = e.toString());
     } finally {
       if (mounted) setState(() => _isLoadingDetail = false);
-    }
-  }
-
-  Future<void> _loadFoodRatings() async {
-    if (_food.id.isEmpty) return;
-    setState(() {
-      _isLoadingRatings = true;
-      _ratingsError = null;
-    });
-
-    try {
-      final ratings = await _ratingService.getRatings(foodId: _food.id);
-      if (!mounted) return;
-      setState(() => _ratings = ratings);
-    } catch (e) {
-      if (mounted) setState(() => _ratingsError = e.toString());
-    } finally {
-      if (mounted) setState(() => _isLoadingRatings = false);
     }
   }
 
@@ -116,8 +90,9 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
 
   Food _mergeMenuContext(Food detail, Food menuContext) {
     final remainingServings = menuContext.remainingServings ?? 0;
-    final status =
-        remainingServings <= 0 ? FoodStatus.soldOut : menuContext.status;
+    final status = remainingServings <= 0
+        ? FoodStatus.soldOut
+        : menuContext.status;
 
     return detail.copyWith(
       kind: menuContext.kind,
@@ -149,7 +124,7 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
 
   Future<void> _addToCart({bool openCart = false}) async {
     if (!_food.canAddToCart) return;
-
+    
     final token = await AuthStorage.getToken();
     if (!mounted) return;
     if (token == null) {
@@ -160,8 +135,7 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
     try {
       await ref.read(cartProvider.notifier).addItem(_food, quantity: quantity);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('${_food.name} added to cart')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${_food.name} added to cart')));
       if (openCart) {
         Navigator.pushNamed(context, CartScreen.routeName);
       }
@@ -359,13 +333,6 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 28),
-                    _FoodReviewsSection(
-                      ratings: _ratings,
-                      isLoading: _isLoadingRatings,
-                      errorMessage: _ratingsError,
-                      onRetry: _loadFoodRatings,
-                    ),
                   ],
                 ),
               );
@@ -447,160 +414,6 @@ class _DetailErrorBanner extends StatelessWidget {
           ),
           TextButton(onPressed: onRetry, child: const Text('Retry')),
         ],
-      ),
-    );
-  }
-}
-
-class _FoodReviewsSection extends StatelessWidget {
-  final List<CustomerRating> ratings;
-  final bool isLoading;
-  final String? errorMessage;
-  final VoidCallback onRetry;
-
-  const _FoodReviewsSection({
-    required this.ratings,
-    required this.isLoading,
-    required this.errorMessage,
-    required this.onRetry,
-  });
-
-  double get _averageRating {
-    if (ratings.isEmpty) return 0;
-    final total = ratings.fold<int>(0, (sum, rating) => sum + rating.stars);
-    return total / ratings.length;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Customer Reviews',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-              ),
-            ),
-            if (ratings.isNotEmpty)
-              Text(
-                '${_averageRating.toStringAsFixed(1)} (${ratings.length})',
-                style: const TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        if (isLoading)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 18),
-              child: CircularProgressIndicator(),
-            ),
-          )
-        else if (errorMessage != null)
-          _DetailErrorBanner(message: errorMessage!, onRetry: onRetry)
-        else if (ratings.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.muted,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Text(
-              'No reviews for this food yet.',
-              style: TextStyle(color: AppColors.subText),
-            ),
-          )
-        else
-          ...ratings.take(5).map(
-                (rating) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _FoodReviewCard(rating: rating),
-                ),
-              ),
-      ],
-    );
-  }
-}
-
-class _FoodReviewCard extends StatelessWidget {
-  final CustomerRating rating;
-
-  const _FoodReviewCard({required this.rating});
-
-  @override
-  Widget build(BuildContext context) {
-    final createdAt = rating.createdAt;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.muted,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  rating.user?.fullName ?? 'Customer',
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-              ),
-              _ReviewStars(value: rating.stars),
-            ],
-          ),
-          if (createdAt != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              DateFormat('dd/MM/yyyy HH:mm').format(createdAt.toLocal()),
-              style: const TextStyle(color: AppColors.subText, fontSize: 12),
-            ),
-          ],
-          const SizedBox(height: 10),
-          Text(
-            rating.comment ?? 'No comment',
-            style: const TextStyle(color: AppColors.subText, height: 1.4),
-          ),
-          if (rating.staffReply != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              'Staff reply: ${rating.staffReply}',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ReviewStars extends StatelessWidget {
-  final int value;
-
-  const _ReviewStars({required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(
-        5,
-        (index) => Icon(
-          index < value ? Icons.star_rounded : Icons.star_border_rounded,
-          color: AppColors.primary,
-          size: 18,
-        ),
       ),
     );
   }
