@@ -48,7 +48,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       begin: const Offset(0, 0.08),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
-    _fadeAnim = CurvedAnimation(parent: _slideController, curve: Curves.easeOut);
+    _fadeAnim =
+        CurvedAnimation(parent: _slideController, curve: Curves.easeOut);
     _fetchOrderDetail();
   }
 
@@ -84,8 +85,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       if (!mounted) return;
       setState(() {
         if (!quiet) {
-          _errorMessage =
-              error.toString().replaceFirst('ApiException: ', '');
+          _errorMessage = error.toString().replaceFirst('ApiException: ', '');
           _isLoading = false;
         }
       });
@@ -100,8 +100,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   void _startPolling() {
     _pollingTimer?.cancel();
     if (_order == null || _isTerminalStatus(_order!.status)) return;
-    _pollingTimer =
-        Timer.periodic(const Duration(seconds: 10), (timer) async {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
       if (!mounted) {
         timer.cancel();
         return;
@@ -137,8 +136,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
           backgroundColor: const Color(0xFF1E293B),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           content: Row(
             children: [
               const Icon(Icons.error_outline_rounded,
@@ -273,8 +271,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     }
     final apiRoot = Uri.parse(ApiClient.baseUrl);
     final origin = '${apiRoot.scheme}://${apiRoot.authority}';
-    final normalizedPath =
-        imageUrl.startsWith('/') ? imageUrl : '/$imageUrl';
+    final normalizedPath = imageUrl.startsWith('/') ? imageUrl : '/$imageUrl';
     return '$origin$normalizedPath';
   }
 
@@ -338,8 +335,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 28),
+                      padding: const EdgeInsets.symmetric(horizontal: 28),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14)),
                     ),
@@ -355,7 +351,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     final order = _order!;
     final s = order.status.toUpperCase();
     final canCancel = s == 'PENDING_PAYMENT' || s == 'PAID';
-    final isCompleted = s == 'COMPLETED';
+    final canRate =
+        s == 'COMPLETED' && order.paymentStatus.toUpperCase() == 'PAID';
     final meta = _statusMeta(order.status);
 
     return Scaffold(
@@ -394,8 +391,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                   ),
                   child: SafeArea(
                     child: Padding(
-                      padding:
-                          const EdgeInsets.fromLTRB(24, 52, 24, 20),
+                      padding: const EdgeInsets.fromLTRB(24, 52, 24, 20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -404,8 +400,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color:
-                                      Colors.white.withValues(alpha: 0.2),
+                                  color: Colors.white.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Icon(meta.icon,
@@ -414,8 +409,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       meta.label,
@@ -442,17 +436,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                                 width: 70,
                                 height: 70,
                                 decoration: BoxDecoration(
-                                  color:
-                                      Colors.white.withValues(alpha: 0.15),
-                                  borderRadius:
-                                      BorderRadius.circular(18),
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(18),
                                   border: Border.all(
                                       color: Colors.white30, width: 1.5),
                                 ),
                                 alignment: Alignment.center,
                                 child: Column(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.center,
+                                  mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     const Text(
                                       'QUEUE',
@@ -484,8 +475,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
               ),
               title: Text(
                 order.code,
-                style: const TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w800),
+                style:
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
               ),
             ),
 
@@ -524,7 +515,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                         _buildItemsCard(order),
                         const SizedBox(height: 28),
                         // ── Action Buttons ────────────────────────
-                        _buildActions(context, canCancel, isCompleted),
+                        _buildActions(context, order, canCancel, canRate),
                         const SizedBox(height: 16),
                       ],
                     ),
@@ -557,8 +548,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Order Code',
-                    style:
-                        TextStyle(color: AppColors.subText, fontSize: 11)),
+                    style: TextStyle(color: AppColors.subText, fontSize: 11)),
                 Text(
                   order.code,
                   style: const TextStyle(
@@ -573,8 +563,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
           ),
           Text(
             _formatDateTime(order.createdAt),
-            style:
-                const TextStyle(color: AppColors.subText, fontSize: 11),
+            style: const TextStyle(color: AppColors.subText, fontSize: 11),
           ),
         ],
       ),
@@ -643,8 +632,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       ),
     ];
 
-    final isCancelledOrExpired = ['CANCELLED', 'EXPIRED']
-        .contains(order.status.toUpperCase());
+    final isCancelledOrExpired =
+        ['CANCELLED', 'EXPIRED'].contains(order.status.toUpperCase());
 
     return Container(
       decoration: BoxDecoration(
@@ -667,8 +656,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
               decoration: BoxDecoration(
                 color: AppColors.error.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                    color: AppColors.error.withValues(alpha: 0.2)),
+                border:
+                    Border.all(color: AppColors.error.withValues(alpha: 0.2)),
               ),
               child: Row(
                 children: [
@@ -700,8 +689,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 final idx = entry.key;
                 final step = entry.value;
                 final done = _isStepDone(order.status, step.stepKey);
-                final isActive =
-                    _isStepActive(order.status, step.stepKey);
+                final isActive = _isStepActive(order.status, step.stepKey);
                 final isLast = idx == steps.length - 1;
                 return _TimelineItem(
                   step: step,
@@ -906,16 +894,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   }
 
   Widget _buildActions(
-      BuildContext context, bool canCancel, bool isCompleted) {
+      BuildContext context, Order order, bool canCancel, bool canRate) {
     return Column(
       children: [
-        if (isCompleted)
+        if (canRate)
           SizedBox(
             width: double.infinity,
             height: 52,
             child: ElevatedButton.icon(
-              onPressed: () =>
-                  Navigator.pushNamed(context, CreateRatingScreen.routeName),
+              onPressed: () => Navigator.pushNamed(
+                context,
+                CreateRatingScreen.routeName,
+                arguments: CreateRatingArgs(order: order),
+              ),
               icon: const Icon(Icons.star_rounded, size: 20),
               label: const Text('Rate Your Meal',
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
@@ -929,7 +920,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
             ),
           ),
         if (canCancel) ...[
-          if (isCompleted) const SizedBox(height: 10),
+          if (canRate) const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             height: 52,
@@ -937,34 +928,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
               onPressed: () => _showCancelDialog(context),
               icon: const Icon(Icons.cancel_outlined, size: 18),
               label: const Text('Cancel Order',
-                  style:
-                      TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.error,
                 side: BorderSide(
-                    color: AppColors.error.withValues(alpha: 0.5),
-                    width: 1.5),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-              ),
-            ),
-          ),
-        ],
-        if (!isCompleted && !canCancel) ...[
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton.icon(
-              onPressed: () =>
-                  Navigator.pushNamed(context, CreateRatingScreen.routeName),
-              icon: const Icon(Icons.star_outline_rounded, size: 20),
-              label: const Text('Rate Your Meal',
-                  style:
-                      TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primarySoft,
-                foregroundColor: AppColors.primary,
-                elevation: 0,
+                    color: AppColors.error.withValues(alpha: 0.5), width: 1.5),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
               ),
@@ -1357,9 +1325,9 @@ class _LiveChipState extends State<_LiveChip>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-        vsync: this, duration: const Duration(seconds: 2))
-      ..repeat(reverse: true);
+    _ctrl =
+        AnimationController(vsync: this, duration: const Duration(seconds: 2))
+          ..repeat(reverse: true);
     _anim = Tween<double>(begin: 0.4, end: 1.0)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
@@ -1375,13 +1343,12 @@ class _LiveChipState extends State<_LiveChip>
     return AnimatedBuilder(
       animation: _anim,
       builder: (_, __) => Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: Colors.green.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-              color: Colors.green.withValues(alpha: 0.3), width: 1),
+          border:
+              Border.all(color: Colors.green.withValues(alpha: 0.3), width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1391,12 +1358,10 @@ class _LiveChipState extends State<_LiveChip>
               height: 6,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color:
-                    Colors.green.withValues(alpha: _anim.value),
+                color: Colors.green.withValues(alpha: _anim.value),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.green.withValues(
-                        alpha: 0.4 * _anim.value),
+                    color: Colors.green.withValues(alpha: 0.4 * _anim.value),
                     blurRadius: 4,
                     spreadRadius: 1,
                   ),

@@ -13,8 +13,13 @@ class OrderListScreen extends StatefulWidget {
   static const String routeName = '/orders';
 
   final bool showBackButton;
+  final String initialTab;
 
-  const OrderListScreen({super.key, this.showBackButton = true});
+  const OrderListScreen({
+    super.key,
+    this.showBackButton = true,
+    this.initialTab = 'Active',
+  });
 
   @override
   State<OrderListScreen> createState() => _OrderListScreenState();
@@ -27,14 +32,19 @@ class _OrderListScreenState extends State<OrderListScreen> {
   List<Order> _filteredOrders = [];
   bool _isLoading = true;
   String? _errorMessage;
-  String _selectedTab = 'Active';
+  late String _selectedTab;
 
   final _tabs = ['Active', 'Completed', 'Cancelled'];
 
   @override
   void initState() {
     super.initState();
+    _selectedTab = _normalizedTab(widget.initialTab);
     _fetchOrders();
+  }
+
+  String _normalizedTab(String tab) {
+    return _tabs.contains(tab) ? tab : 'Active';
   }
 
   Future<void> _fetchOrders() async {
@@ -239,7 +249,8 @@ class _OrderListScreenState extends State<OrderListScreen> {
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
-                            color: isSelected ? Colors.white : AppColors.subText,
+                            color:
+                                isSelected ? Colors.white : AppColors.subText,
                           ),
                         ),
                       ),
@@ -330,8 +341,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
             Text(
               _errorMessage ?? '',
               textAlign: TextAlign.center,
-              style:
-                  const TextStyle(color: AppColors.subText, fontSize: 13),
+              style: const TextStyle(color: AppColors.subText, fontSize: 13),
             ),
             const SizedBox(height: 20),
             SizedBox(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/customer_rating.dart';
 import '../models/food.dart';
 import '../models/order.dart';
 import '../models/user_notification.dart';
@@ -113,7 +114,12 @@ class AppRoutes {
         final orderId = settings.arguments as String? ?? '';
         return _route(PaymentSuccessScreen(orderId: orderId));
       case OrderListScreen.routeName:
-        return _route(const OrderListScreen());
+        final arguments = settings.arguments;
+        String initialTab = 'Active';
+        if (arguments is Map) {
+          initialTab = arguments['initialTab'] as String? ?? 'Active';
+        }
+        return _route(OrderListScreen(initialTab: initialTab));
       case OrderDetailScreen.routeName:
         final orderId = settings.arguments as String? ?? '';
         return _route(OrderDetailScreen(orderId: orderId));
@@ -129,7 +135,18 @@ class AppRoutes {
       case RatingListScreen.routeName:
         return _route(const RatingListScreen());
       case CreateRatingScreen.routeName:
-        return _route(const CreateRatingScreen());
+        final arguments = settings.arguments;
+        Order? order;
+        CustomerRating? rating;
+        if (arguments is CreateRatingArgs) {
+          order = arguments.order;
+          rating = arguments.rating;
+        } else if (arguments is Order) {
+          order = arguments;
+        } else if (arguments is CustomerRating) {
+          rating = arguments;
+        }
+        return _route(CreateRatingScreen(initialOrder: order, rating: rating));
       case RatingSuccessScreen.routeName:
         return _route(const RatingSuccessScreen());
       case EditProfileScreen.routeName:
