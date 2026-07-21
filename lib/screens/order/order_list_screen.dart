@@ -14,8 +14,13 @@ class OrderListScreen extends StatefulWidget {
   static const String routeName = '/orders';
 
   final bool showBackButton;
+  final String initialTab;
 
-  const OrderListScreen({super.key, this.showBackButton = true});
+  const OrderListScreen({
+    super.key,
+    this.showBackButton = true,
+    this.initialTab = 'Active',
+  });
 
   @override
   State<OrderListScreen> createState() => _OrderListScreenState();
@@ -28,12 +33,21 @@ class _OrderListScreenState extends State<OrderListScreen> {
   List<Order> _filteredOrders = [];
   bool _isLoading = true;
   String? _errorMessage;
-  String _selectedTab = 'Active'; // Active, Completed, Cancelled
+  late String _selectedTab;
 
   @override
   void initState() {
     super.initState();
+    _selectedTab = _normalizedTab(widget.initialTab);
     _fetchOrders();
+  }
+
+  String _normalizedTab(String tab) {
+    return switch (tab) {
+      'Completed' => 'Completed',
+      'Cancelled' => 'Cancelled',
+      _ => 'Active',
+    };
   }
 
   Future<void> _fetchOrders() async {
@@ -92,7 +106,8 @@ class _OrderListScreenState extends State<OrderListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: widget.showBackButton ? AppBar(title: const Text('My Orders')) : null,
+      appBar:
+          widget.showBackButton ? AppBar(title: const Text('My Orders')) : null,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _fetchOrders,
@@ -101,9 +116,12 @@ class _OrderListScreenState extends State<OrderListScreen> {
             padding: const EdgeInsets.all(24),
             children: [
               if (!widget.showBackButton)
-                const Text('My Orders', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
+                const Text('My Orders',
+                    style:
+                        TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
               const SizedBox(height: 4),
-              const Text('Track all active and past orders', style: TextStyle(color: AppColors.subText)),
+              const Text('Track all active and past orders',
+                  style: TextStyle(color: AppColors.subText)),
               const SizedBox(height: 20),
               Row(
                 children: [
@@ -140,7 +158,8 @@ class _OrderListScreenState extends State<OrderListScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 40),
                     child: Column(
                       children: [
-                        Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+                        Text(_errorMessage!,
+                            style: const TextStyle(color: Colors.red)),
                         const SizedBox(height: 12),
                         ElevatedButton(
                           onPressed: _fetchOrders,
@@ -189,8 +208,11 @@ class _OrderChip extends StatelessWidget {
         child: Chip(
           label: Text(label),
           backgroundColor: selected ? AppColors.primary : Colors.white,
-          labelStyle: TextStyle(color: selected ? Colors.white : AppColors.text, fontWeight: FontWeight.w800),
-          side: BorderSide(color: selected ? AppColors.primary : AppColors.border),
+          labelStyle: TextStyle(
+              color: selected ? Colors.white : AppColors.text,
+              fontWeight: FontWeight.w800),
+          side: BorderSide(
+              color: selected ? AppColors.primary : AppColors.border),
         ),
       );
 }
@@ -205,17 +227,19 @@ class _OrderCard extends StatelessWidget {
     final s = order.status.toUpperCase();
     final isSuccess = s == 'COMPLETED' || s == 'READY';
     final isCancelled = s == 'CANCELLED';
-    
+
     Color statusBgColor = AppColors.primary;
     if (isSuccess) statusBgColor = AppColors.success;
     if (isCancelled) statusBgColor = AppColors.error;
 
     String formattedTime = 'N/A';
     if (order.createdAt != null) {
-      formattedTime = DateFormat('dd/MM/yyyy HH:mm').format(order.createdAt!.toLocal());
+      formattedTime =
+          DateFormat('dd/MM/yyyy HH:mm').format(order.createdAt!.toLocal());
     }
 
-    final totalItemsCount = order.items.fold(0, (sum, item) => sum + item.quantity);
+    final totalItemsCount =
+        order.items.fold(0, (sum, item) => sum + item.quantity);
 
     return AppCard(
       onTap: () => Navigator.pushNamed(
@@ -231,18 +255,23 @@ class _OrderCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   order.code,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: statusBgColor,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   order.status,
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -262,15 +291,21 @@ class _OrderCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      order.items.map((e) => '${e.quantity}x ${e.food.name}').join(', '),
+                      order.items
+                          .map((e) => '${e.quantity}x ${e.food.name}')
+                          .join(', '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w500, fontSize: 13),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '$totalItemsCount items · ${CurrencyFormatter.vnd(order.totalPrice)}',
-                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 14),
+                      style: const TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14),
                     ),
                   ],
                 ),
@@ -281,13 +316,19 @@ class _OrderCard extends StatelessWidget {
                 children: [
                   Text(
                     'Queue ${order.queueNumber}',
-                    style: const TextStyle(color: AppColors.text, fontWeight: FontWeight.bold, fontSize: 13),
+                    style: const TextStyle(
+                        color: AppColors.text,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13),
                   ),
                   const SizedBox(height: 2),
                   const Row(
                     children: [
-                      Text('Details', style: TextStyle(color: AppColors.subText, fontSize: 12)),
-                      Icon(Icons.chevron_right, color: AppColors.subText, size: 16),
+                      Text('Details',
+                          style: TextStyle(
+                              color: AppColors.subText, fontSize: 12)),
+                      Icon(Icons.chevron_right,
+                          color: AppColors.subText, size: 16),
                     ],
                   ),
                 ],

@@ -6,9 +6,7 @@ import '../../models/user_notification.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_storage.dart';
 import '../../services/notification_service.dart';
-import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
-import '../order/order_list_screen.dart';
 
 class NotificationDetailScreen extends StatefulWidget {
   static const String routeName = '/notification-detail';
@@ -120,12 +118,6 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                           height: 1.5,
                         ),
                       ),
-                      const SizedBox(height: 28),
-                      AppButton(
-                        label: 'View Orders',
-                        onPressed: () => Navigator.pushNamed(
-                            context, OrderListScreen.routeName),
-                      ),
                     ],
                   ),
                 ),
@@ -145,6 +137,10 @@ String _typeLabel(String type) {
       return 'Payment success';
     case 'ORDER_CANCELLED':
       return 'Order cancelled';
+    case 'ORDER_COMPLETED':
+    case 'ORDER_DONE':
+    case 'ORDER_FINISHED':
+      return 'Order completed';
     case 'ORDER_READY':
       return 'Food is ready';
     default:
