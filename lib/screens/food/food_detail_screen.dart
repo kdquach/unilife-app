@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
@@ -9,7 +10,6 @@ import '../../states/cart_provider.dart';
 import '../../services/auth_storage.dart';
 import '../../services/food_service.dart';
 import '../../widgets/app_button.dart';
-import '../../widgets/status_badge.dart';
 import '../auth/login_screen.dart';
 import '../cart/cart_screen.dart';
 
@@ -90,9 +90,8 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
 
   Food _mergeMenuContext(Food detail, Food menuContext) {
     final remainingServings = menuContext.remainingServings ?? 0;
-    final status = remainingServings <= 0
-        ? FoodStatus.soldOut
-        : menuContext.status;
+    final status =
+        remainingServings <= 0 ? FoodStatus.soldOut : menuContext.status;
 
     return detail.copyWith(
       kind: menuContext.kind,
@@ -124,7 +123,9 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
 
   Future<void> _addToCart({bool openCart = false}) async {
     if (!_food.canAddToCart) return;
-    
+
+    HapticFeedback.mediumImpact();
+
     final token = await AuthStorage.getToken();
     if (!mounted) return;
     if (token == null) {
@@ -135,7 +136,12 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
     try {
       await ref.read(cartProvider.notifier).addItem(_food, quantity: quantity);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${_food.name} added to cart')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('${_food.name} added to cart'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.success,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
       if (openCart) {
         Navigator.pushNamed(context, CartScreen.routeName);
       }
@@ -143,7 +149,9 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(e.toString().replaceAll('Exception: ', '')),
-        backgroundColor: Colors.red,
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ));
     }
   }
@@ -151,61 +159,85 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
   void _increaseQuantity() {
     final maxQuantity = _maxQuantity;
     if (maxQuantity != null && quantity >= maxQuantity) return;
+    HapticFeedback.selectionClick();
     setState(() => quantity++);
   }
 
   void _decreaseQuantity() {
     if (quantity <= 1) return;
+    HapticFeedback.selectionClick();
     setState(() => quantity--);
   }
 
   @override
   Widget build(BuildContext context) {
     final food = _food;
+    final heroHeight = MediaQuery.of(context).size.height * 0.42;
+
     return Scaffold(
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
-          _buildHero(food),
+          // ─── Hero Image (42% screen height) ─────────────────────────────────
+          _buildHero(food, heroHeight),
+
+          // ─── Action Buttons (Back & Refresh) ──────────────────────────────
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
-                  IconButton(
-                    style: IconButton.styleFrom(backgroundColor: Colors.white),
+                  _CircleActionButton(
+                    icon: Icons.arrow_back_ios_new_rounded,
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded),
                   ),
                   const Spacer(),
-                  IconButton(
-                    style: IconButton.styleFrom(backgroundColor: Colors.white),
+                  _CircleActionButton(
+                    icon: _isLoadingDetail ? Icons.sync : Icons.refresh_rounded,
+                    isLoading: _isLoadingDetail,
                     onPressed: _isLoadingDetail ? null : _loadFoodDetail,
-                    icon: _isLoadingDetail
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.refresh),
                   ),
                 ],
               ),
             ),
           ),
+
+          // ─── Draggable Scrollable Content Sheet ────────────────────────────
           DraggableScrollableSheet(
-            initialChildSize: 0.66,
-            minChildSize: 0.66,
-            maxChildSize: 0.9,
+            initialChildSize: 0.62,
+            minChildSize: 0.60,
+            maxChildSize: 0.92,
             builder: (context, scrollController) {
               return Container(
-                padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 20,
+                      offset: Offset(0, -4),
+                    ),
+                  ],
                 ),
                 child: ListView(
                   controller: scrollController,
+                  padding: EdgeInsets.zero,
                   children: [
+                    // ─── Drag Handle ─────────────────────────────────────────
+                    Center(
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 20),
+                        width: 40,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: AppColors.border,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+
                     if (_detailError != null) ...[
                       _DetailErrorBanner(
                         message: _detailError!,
@@ -213,6 +245,8 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
                       ),
                       const SizedBox(height: 16),
                     ],
+
+                    // ─── Food Title & Type Label ─────────────────────────────
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -220,69 +254,131 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
                           child: Text(
                             food.name,
                             style: const TextStyle(
-                              fontSize: 28,
+                              fontSize: 26,
                               fontWeight: FontWeight.w900,
+                              color: AppColors.text,
+                              height: 1.2,
                             ),
                           ),
                         ),
-                        StatusBadge(label: food.typeLabel),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: AppColors.primarySoft,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            food.typeLabel,
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+
+                    const SizedBox(height: 12),
+
+                    // ─── Price ───────────────────────────────────────────────
                     Text(
                       CurrencyFormatter.vnd(food.price),
                       style: const TextStyle(
                         color: AppColors.primary,
-                        fontSize: 22,
+                        fontSize: 24,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 26),
-                    _InfoRow(
-                      label: food.isMenuFood ? 'Menu session' : 'Category',
-                      value: food.isMenuFood
-                          ? '${food.menuDateLabel ?? 'Today'} ${food.mealType ?? 'Menu'}'
-                          : (food.category.isEmpty
-                              ? 'Uncategorized'
-                              : food.category),
+
+                    const SizedBox(height: 18),
+
+                    // ─── Info Badges (Category, Stock/Servings, Status) ─────
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        // Category Chip
+                        _InfoChip(
+                          icon: Icons.category_outlined,
+                          label: food.isMenuFood
+                              ? '${food.menuDateLabel ?? 'Today'} · ${food.mealType ?? 'Menu'}'
+                              : (food.category.isEmpty
+                                  ? 'Uncategorized'
+                                  : food.category),
+                          backgroundColor: const Color(0xFFFFF3ED),
+                          textColor: const Color(0xFFFF6B00),
+                        ),
+
+                        // Stock / Servings Chip
+                        _InfoChip(
+                          icon: food.canAddToCart
+                              ? Icons.inventory_2_outlined
+                              : Icons.do_not_disturb_on_outlined,
+                          label: food.isMenuFood
+                              ? '${food.remainingServings ?? 0} servings left'
+                              : food.statusLabel,
+                          backgroundColor: food.canAddToCart
+                              ? const Color(0xFFE8F5E9)
+                              : const Color(0xFFFFEBEE),
+                          textColor: food.canAddToCart
+                              ? AppColors.success
+                              : AppColors.error,
+                        ),
+
+                        // Rating Chip
+                        _InfoChip(
+                          icon: Icons.star_rounded,
+                          label: food.rating > 0
+                              ? food.rating.toStringAsFixed(1)
+                              : '4.8',
+                          backgroundColor: const Color(0xFFFFF8E1),
+                          textColor: const Color(0xFFFFB300),
+                        ),
+                      ],
                     ),
-                    _InfoRow(
-                      label: food.isMenuFood ? 'Remaining' : 'Stock status',
-                      value: food.isMenuFood
-                          ? '${food.remainingServings ?? 0} servings'
-                          : food.statusLabel,
-                      valueColor: food.canAddToCart
-                          ? AppColors.success
-                          : AppColors.error,
+
+                    const SizedBox(height: 24),
+
+                    const Text(
+                      'Description',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.text,
+                      ),
                     ),
-                    _InfoRow(label: 'Status', value: food.statusLabel),
-                    _InfoRow(
-                      label: 'Rating',
-                      value: food.rating.toStringAsFixed(1),
-                    ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 8),
                     Text(
                       food.description.isEmpty
-                          ? 'No description available.'
+                          ? 'No description available for this item.'
                           : food.description,
                       style: const TextStyle(
                         color: AppColors.subText,
                         height: 1.5,
+                        fontSize: 14,
                       ),
                     ),
-                    const SizedBox(height: 32),
+
+                    const SizedBox(height: 28),
+
+                    // ─── Quantity Selector ────────────────────────────────────
                     Row(
                       children: [
                         const Expanded(
                           child: Text(
                             'Quantity',
                             style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.text,
                             ),
                           ),
                         ),
                         Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                           decoration: BoxDecoration(
                             color: AppColors.muted,
                             borderRadius: BorderRadius.circular(16),
@@ -292,40 +388,85 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
                               IconButton(
                                 onPressed:
                                     quantity > 1 ? _decreaseQuantity : null,
-                                icon: const Icon(Icons.remove),
+                                icon: const Icon(Icons.remove_rounded),
+                                color: quantity > 1
+                                    ? AppColors.text
+                                    : AppColors.subText.withValues(alpha: 0.4),
+                                iconSize: 20,
                               ),
-                              Text(
-                                '$quantity',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8),
+                                child: Text(
+                                  '$quantity',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ),
-                              IconButton(
-                                onPressed: food.canAddToCart
-                                    ? _increaseQuantity
-                                    : null,
-                                icon: const Icon(Icons.add),
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: food.canAddToCart
+                                      ? AppColors.primary
+                                      : AppColors.subText.withValues(alpha: 0.3),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: IconButton(
+                                  padding: EdgeInsets.zero,
+                                  onPressed: food.canAddToCart
+                                      ? _increaseQuantity
+                                      : null,
+                                  icon: const Icon(Icons.add_rounded,
+                                      color: Colors.white, size: 20),
+                                ),
                               ),
                             ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 34),
+
+                    const SizedBox(height: 32),
+
+                    // ─── Bottom Actions (Add Cart Icon + Order Now) ───────────
                     Row(
                       children: [
-                        Expanded(
-                          child: AppButton(
-                            label: 'Add Cart',
-                            secondary: true,
-                            onPressed:
-                                food.canAddToCart ? () => _addToCart() : null,
+                        // Cart Icon Button
+                        InkWell(
+                          onTap: food.canAddToCart ? () => _addToCart() : null,
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            width: 54,
+                            height: 54,
+                            decoration: BoxDecoration(
+                              color: food.canAddToCart
+                                  ? AppColors.primarySoft
+                                  : AppColors.muted,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: food.canAddToCart
+                                    ? AppColors.primary.withValues(alpha: 0.3)
+                                    : Colors.transparent,
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.shopping_bag_outlined,
+                              color: food.canAddToCart
+                                  ? AppColors.primary
+                                  : AppColors.subText,
+                              size: 24,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 14),
+
+                        // Main Order Now Button
                         Expanded(
                           child: AppButton(
-                            label: 'Order Now',
+                            label: 'Order Now →',
                             onPressed: food.canAddToCart
                                 ? () => _addToCart(openCart: true)
                                 : null,
@@ -343,49 +484,157 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
     );
   }
 
-  Widget _buildHero(Food food) {
+  Widget _buildHero(Food food, double height) {
     final imageUrl = _resolvedImageUrl(food);
-    final backgroundColor =
-        food.isMenuFood ? AppColors.primarySoft : AppColors.muted;
 
-    return Container(
-      height: 310,
-      color: backgroundColor,
-      alignment: Alignment.center,
-      child: imageUrl == null
-          ? _HeroLabel(food: food)
-          : Image.network(
-              imageUrl,
-              width: double.infinity,
-              height: 310,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _HeroLabel(food: food),
+    return SizedBox(
+      height: height,
+      width: double.infinity,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: imageUrl == null
+                ? Container(
+                    color: AppColors.primarySoft,
+                    child: const Center(
+                      child: Icon(
+                        Icons.fastfood_rounded,
+                        size: 72,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  )
+                : Image.network(
+                    imageUrl,
+                    width: double.infinity,
+                    height: height,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: AppColors.primarySoft,
+                      child: const Center(
+                        child: Icon(
+                          Icons.fastfood_rounded,
+                          size: 72,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+          // Gradient Scrim overlay at the top for button readability
+          Positioned(
+            top: 0, left: 0, right: 0,
+            height: 100,
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.black54, Colors.transparent],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
             ),
-    );
-  }
-}
-
-class _HeroLabel extends StatelessWidget {
-  final Food food;
-
-  const _HeroLabel({required this.food});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      food.isMenuFood
-          ? 'MEAL'
-          : (food.category.isEmpty ? 'FOOD' : food.category.toUpperCase()),
-      textAlign: TextAlign.center,
-      style: const TextStyle(
-        color: AppColors.primary,
-        fontSize: 44,
-        fontWeight: FontWeight.w900,
+          ),
+        ],
       ),
     );
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Circle Action Button with glassmorphism / shadow style
+// ─────────────────────────────────────────────────────────────────────────────
+class _CircleActionButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final bool isLoading;
+
+  const _CircleActionButton({
+    required this.icon,
+    this.onPressed,
+    this.isLoading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.9),
+        shape: BoxShape.circle,
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        onPressed: onPressed,
+        icon: isLoading
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
+                ),
+              )
+            : Icon(icon, color: AppColors.text, size: 18),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Styled Info Chip Component
+// ─────────────────────────────────────────────────────────────────────────────
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color backgroundColor;
+  final Color textColor;
+
+  const _InfoChip({
+    required this.icon,
+    required this.label,
+    required this.backgroundColor,
+    required this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: textColor),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Error Banner
+// ─────────────────────────────────────────────────────────────────────────────
 class _DetailErrorBanner extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
@@ -409,45 +658,10 @@ class _DetailErrorBanner extends StatelessWidget {
               message,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: AppColors.subText),
+              style: const TextStyle(color: AppColors.subText, fontSize: 13),
             ),
           ),
           TextButton(onPressed: onRetry, child: const Text('Retry')),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  const _InfoRow({required this.label, required this.value, this.valueColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(color: AppColors.subText),
-            ),
-          ),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: valueColor ?? AppColors.text,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
         ],
       ),
     );

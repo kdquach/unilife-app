@@ -10,7 +10,6 @@ import '../../models/menu_schedule.dart';
 import '../../services/api_client.dart';
 import '../../services/food_service.dart';
 import '../../states/cart_provider.dart';
-import '../../widgets/food_cards.dart';
 import '../food/food_detail_screen.dart';
 
 class WeeklyMenuScreen extends ConsumerStatefulWidget {
@@ -107,19 +106,23 @@ class _WeeklyMenuScreenState extends ConsumerState<WeeklyMenuScreen> {
 
   Future<void> _add(Food food) async {
     try {
+      HapticFeedback.mediumImpact();
       await ref.read(cartProvider.notifier).addItem(food);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${food.name} added to cart')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('${food.name} added to cart'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.success,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: Colors.red,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e.toString().replaceAll('Exception: ', '')),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
     }
   }
 
@@ -134,35 +137,20 @@ class _WeeklyMenuScreenState extends ConsumerState<WeeklyMenuScreen> {
   }
 
   List<String> _uniqueOptions(Iterable<String> values) {
-    final normalized = values
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toSet()
-        .toList();
+    final normalized =
+        values.map((v) => v.trim()).where((v) => v.isNotEmpty).toSet().toList();
     normalized.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     return normalized;
   }
 
   int _minPriceFor(List<Food> foods) {
     if (foods.isEmpty) return 0;
-    return foods.map((food) => food.price).reduce((a, b) => a < b ? a : b);
+    return foods.map((f) => f.price).reduce((a, b) => a < b ? a : b);
   }
 
   int _maxPriceFor(List<Food> foods) {
     if (foods.isEmpty) return 0;
-    return foods.map((food) => food.price).reduce((a, b) => a > b ? a : b);
-  }
-
-  bool _hasPriceDataFor(List<Food> foods) =>
-      foods.isNotEmpty && _maxPriceFor(foods) > 0;
-
-  bool _hasPriceFilterFor(List<Food> foods) {
-    if (!_hasPriceDataFor(foods)) return false;
-    final selectedMin = _selectedMinPrice;
-    final selectedMax = _selectedMaxPrice;
-    if (selectedMin == null || selectedMax == null) return false;
-    return selectedMin != _minPriceFor(foods) ||
-        selectedMax != _maxPriceFor(foods);
+    return foods.map((f) => f.price).reduce((a, b) => a > b ? a : b);
   }
 
   bool _hasActiveFiltersFor(List<Food> foods) {
@@ -170,27 +158,23 @@ class _WeeklyMenuScreenState extends ConsumerState<WeeklyMenuScreen> {
         _selectedCategory != _all ||
         _selectedAvailability != _all ||
         _sortOption != 'default' ||
-        _hasPriceFilterFor(foods);
+        _selectedMinPrice != null ||
+        _selectedMaxPrice != null;
   }
 
   List<Food> _filteredFoodsFor(List<Food> foods) {
     final filtered = foods.where((food) {
-      final matchesMeal =
-          _selectedMeal == _all || _mealLabel(food) == _selectedMeal;
-      final matchesCategory = _selectedCategory == _all ||
+      final mealOk = _selectedMeal == _all || _mealLabel(food) == _selectedMeal;
+      final catOk = _selectedCategory == _all ||
           _categoryLabel(food) == _selectedCategory;
-      final matchesAvailability = _selectedAvailability == _all ||
+      final availOk = _selectedAvailability == _all ||
           (_selectedAvailability == 'Available' && food.canAddToCart) ||
           (_selectedAvailability == 'Sold out' && !food.canAddToCart);
-      final matchesMinPrice =
+      final minOk =
           _selectedMinPrice == null || food.price >= _selectedMinPrice!;
-      final matchesMaxPrice =
+      final maxOk =
           _selectedMaxPrice == null || food.price <= _selectedMaxPrice!;
-      return matchesMeal &&
-          matchesCategory &&
-          matchesAvailability &&
-          matchesMinPrice &&
-          matchesMaxPrice;
+      return mealOk && catOk && availOk && minOk && maxOk;
     }).toList();
 
     switch (_sortOption) {
@@ -202,8 +186,7 @@ class _WeeklyMenuScreenState extends ConsumerState<WeeklyMenuScreen> {
         break;
       case 'name_asc':
         filtered.sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-        );
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
         break;
     }
 
@@ -221,24 +204,29 @@ class _WeeklyMenuScreenState extends ConsumerState<WeeklyMenuScreen> {
     });
   }
 
-  Future<void> _openStableFilterSheet(List<Food> foods) async {
+  Future<void> _openFilterSheet(List<Food> foods) async {
+    final mealOptions = _uniqueOptions(foods.map(_mealLabel));
+    final categoryOptions = _uniqueOptions(foods.map(_categoryLabel));
+    final availableMinPrice = _minPriceFor(foods);
+    final availableMaxPrice = _maxPriceFor(foods);
+    final hasPriceData = foods.isNotEmpty && availableMaxPrice > 0;
+
     final selection = await showModalBottomSheet<_WeeklyFilterSelection>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (_) => _WeeklyFilterSheet(
-        foods: foods,
+        mealOptions: mealOptions,
+        categoryOptions: categoryOptions,
+        availableMinPrice: availableMinPrice,
+        availableMaxPrice: availableMaxPrice,
+        hasPriceData: hasPriceData,
         selectedMeal: _selectedMeal,
         selectedCategory: _selectedCategory,
         selectedAvailability: _selectedAvailability,
         selectedMinPrice: _selectedMinPrice,
         selectedMaxPrice: _selectedMaxPrice,
         sortOption: _sortOption,
-        mealLabel: _mealLabel,
-        categoryLabel: _categoryLabel,
       ),
     );
 
@@ -253,453 +241,511 @@ class _WeeklyMenuScreenState extends ConsumerState<WeeklyMenuScreen> {
     });
   }
 
-  // ignore: unused_element
-  Future<void> _openFilterSheet(List<Food> foods) async {
-    final mealOptions = _uniqueOptions(foods.map(_mealLabel));
-    final categoryOptions = _uniqueOptions(foods.map(_categoryLabel));
-    final availableMinPrice = _minPriceFor(foods);
-    final availableMaxPrice = _maxPriceFor(foods);
-    final hasPriceData = _hasPriceDataFor(foods);
-
-    var tempMeal = _selectedMeal;
-    var tempCategory = _selectedCategory;
-    var tempAvailability = _selectedAvailability;
-    var tempSortOption = _sortOption;
-    var tempMinPrice = _selectedMinPrice ?? availableMinPrice;
-    var tempMaxPrice = _selectedMaxPrice ?? availableMaxPrice;
-    String? tempPriceError;
-
-    final minPriceController = TextEditingController(
-      text: hasPriceData ? tempMinPrice.toString() : '',
-    );
-    final maxPriceController = TextEditingController(
-      text: hasPriceData ? tempMaxPrice.toString() : '',
-    );
-
-    try {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.white,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        builder: (context) {
-          return StatefulBuilder(
-            builder: (context, setSheetState) {
-              return SafeArea(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    24,
-                    18,
-                    24,
-                    MediaQuery.of(context).viewInsets.bottom + 24,
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Expanded(
-                              child: Text(
-                                'Filter weekly menu',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () => Navigator.pop(context),
-                              icon: const Icon(Icons.close),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        _buildSheetSection(
-                          title: 'Meal',
-                          children: [
-                            _filterChoiceChip(
-                              label: _all,
-                              selected: tempMeal == _all,
-                              onSelected: () {
-                                setSheetState(() => tempMeal = _all);
-                              },
-                            ),
-                            ...mealOptions.map(
-                              (meal) => _filterChoiceChip(
-                                label: meal,
-                                selected: tempMeal == meal,
-                                onSelected: () {
-                                  setSheetState(() => tempMeal = meal);
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        _buildSheetSection(
-                          title: 'Category',
-                          children: [
-                            _filterChoiceChip(
-                              label: _all,
-                              selected: tempCategory == _all,
-                              onSelected: () {
-                                setSheetState(() => tempCategory = _all);
-                              },
-                            ),
-                            ...categoryOptions.map(
-                              (category) => _filterChoiceChip(
-                                label: category,
-                                selected: tempCategory == category,
-                                onSelected: () {
-                                  setSheetState(() => tempCategory = category);
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        _buildSheetSection(
-                          title: 'Availability',
-                          children: [
-                            for (final option in const [
-                              _all,
-                              'Available',
-                              'Sold out',
-                            ])
-                              _filterChoiceChip(
-                                label: option,
-                                selected: tempAvailability == option,
-                                onSelected: () {
-                                  setSheetState(
-                                    () => tempAvailability = option,
-                                  );
-                                },
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'Price',
-                          style: TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                        const SizedBox(height: 8),
-                        _PriceErrorMessage(message: tempPriceError),
-                        if (hasPriceData) ...[
-                          Text(
-                            '${CurrencyFormatter.vnd(availableMinPrice)} - ${CurrencyFormatter.vnd(availableMaxPrice)}',
-                            style: const TextStyle(
-                              color: AppColors.subText,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: minPriceController,
-                                  keyboardType: TextInputType.number,
-                                  onChanged: (_) {
-                                    if (tempPriceError == null) return;
-                                    setSheetState(() => tempPriceError = null);
-                                  },
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  decoration: const InputDecoration(
-                                    labelText: 'Min price',
-                                    suffixText: 'VND',
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextField(
-                                  controller: maxPriceController,
-                                  keyboardType: TextInputType.number,
-                                  onChanged: (_) {
-                                    if (tempPriceError == null) return;
-                                    setSheetState(() => tempPriceError = null);
-                                  },
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  decoration: const InputDecoration(
-                                    labelText: 'Max price',
-                                    suffixText: 'VND',
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ] else
-                          const Text(
-                            'No price range available',
-                            style: TextStyle(color: AppColors.subText),
-                          ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'Sort by',
-                          style: TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                        const SizedBox(height: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppColors.border),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.sort, color: AppColors.subText),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: DropdownButton<String>(
-                                  value: tempSortOption,
-                                  isExpanded: true,
-                                  underline: const SizedBox.shrink(),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'default',
-                                      child: Text('Schedule order'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'price_asc',
-                                      child: Text('Price low to high'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'price_desc',
-                                      child: Text('Price high to low'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'name_asc',
-                                      child: Text('Name A-Z'),
-                                    ),
-                                  ],
-                                  onChanged: (value) {
-                                    if (value == null) return;
-                                    setSheetState(() {
-                                      tempSortOption = value;
-                                    });
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () {
-                                  setSheetState(() {
-                                    tempMeal = _all;
-                                    tempCategory = _all;
-                                    tempAvailability = _all;
-                                    tempSortOption = 'default';
-                                    tempMinPrice = availableMinPrice;
-                                    tempMaxPrice = availableMaxPrice;
-                                    minPriceController.text =
-                                        hasPriceData ? '$tempMinPrice' : '';
-                                    maxPriceController.text =
-                                        hasPriceData ? '$tempMaxPrice' : '';
-                                    tempPriceError = null;
-                                  });
-                                },
-                                child: const Text('Clear'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  int? minPrice;
-                                  int? maxPrice;
-
-                                  if (hasPriceData) {
-                                    final minPriceText =
-                                        minPriceController.text.trim();
-                                    final maxPriceText =
-                                        maxPriceController.text.trim();
-                                    minPrice = int.tryParse(minPriceText);
-                                    maxPrice = int.tryParse(maxPriceText);
-
-                                    if (minPriceText.isEmpty ||
-                                        maxPriceText.isEmpty) {
-                                      setSheetState(
-                                        () => tempPriceError =
-                                            'Please enter both min and max price.',
-                                      );
-                                      return;
-                                    }
-
-                                    if (minPrice == null || maxPrice == null) {
-                                      setSheetState(
-                                        () => tempPriceError =
-                                            'Price must be a valid number.',
-                                      );
-                                      return;
-                                    }
-
-                                    if (minPrice > maxPrice) {
-                                      setSheetState(
-                                        () => tempPriceError =
-                                            'Min price must be less than or equal to max price.',
-                                      );
-                                      return;
-                                    }
-
-                                    if (minPrice < availableMinPrice ||
-                                        maxPrice > availableMaxPrice) {
-                                      setSheetState(
-                                        () => tempPriceError =
-                                            'Price must be between ${CurrencyFormatter.vnd(availableMinPrice)} and ${CurrencyFormatter.vnd(availableMaxPrice)}.',
-                                      );
-                                      return;
-                                    }
-                                  }
-
-                                  Navigator.pop(context);
-                                  setState(() {
-                                    _selectedMeal = tempMeal;
-                                    _selectedCategory = tempCategory;
-                                    _selectedAvailability = tempAvailability;
-                                    _sortOption = tempSortOption;
-                                    _selectedMinPrice =
-                                        hasPriceData ? minPrice : null;
-                                    _selectedMaxPrice =
-                                        hasPriceData ? maxPrice : null;
-                                  });
-                                },
-                                child: const Text('Apply'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      );
-    } finally {
-      minPriceController.dispose();
-      maxPriceController.dispose();
-    }
+  bool _isToday(DateTime day) {
+    final now = DateTime.now();
+    return day.year == now.year && day.month == now.month && day.day == now.day;
   }
 
-  Widget _buildSheetSection({
-    required String title,
-    required List<Widget> children,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
-        const SizedBox(height: 10),
-        Wrap(spacing: 8, runSpacing: 8, children: children),
-      ],
-    );
-  }
-
-  Widget _filterChoiceChip({
-    required String label,
-    required bool selected,
-    required VoidCallback onSelected,
-  }) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onSelected(),
-      backgroundColor: Colors.white,
-      selectedColor: AppColors.primary,
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : AppColors.text,
-        fontWeight: FontWeight.w800,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: selected ? AppColors.primary : AppColors.border,
-          width: 1,
-        ),
-      ),
-    );
+  bool _isPast(DateTime day) {
+    final today = DateTime.now();
+    final t = DateTime(today.year, today.month, today.day);
+    return day.isBefore(t);
   }
 
   @override
   Widget build(BuildContext context) {
-    final foods = _selectedDayFoods;
-    final filteredFoods = _filteredFoodsFor(foods);
-    final hasActiveFilters = _hasActiveFiltersFor(foods);
+    final dayFoods = _selectedDayFoods;
+    final filteredFoods = _filteredFoodsFor(dayFoods);
+    final hasFilters = _hasActiveFiltersFor(dayFoods);
+    final schedule = _activeScheduleFor(_selectedDay);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Weekly Menu'),
-        actions: [
-          IconButton(
-            tooltip: 'Filter',
-            onPressed: _isLoading || _error != null
-                ? null
-                : () => _openStableFilterSheet(foods),
-            icon: Badge(
-              isLabelVisible: hasActiveFilters,
-              child: const Icon(Icons.tune),
-            ),
-          ),
-        ],
-      ),
+      backgroundColor: AppColors.background,
       body: RefreshIndicator(
         onRefresh: _loadWeeklySchedules,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-                ? _buildErrorView()
-                : _buildBody(foods, filteredFoods, hasActiveFilters),
+        color: AppColors.primary,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // ── Header ───────────────────────────────────────────────────
+            SliverAppBar(
+              pinned: true,
+              backgroundColor: Colors.white,
+              elevation: 0,
+              scrolledUnderElevation: 1,
+              leading: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                    color: AppColors.text),
+              ),
+              title: const Text(
+                'Weekly Menu',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.text,
+                ),
+              ),
+              centerTitle: false,
+              actions: [
+                if (!_isLoading && _error == null && dayFoods.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: IconButton(
+                      tooltip: 'Filter',
+                      onPressed: () => _openFilterSheet(dayFoods),
+                      icon: Stack(
+                        children: [
+                          const Icon(Icons.tune_rounded, color: AppColors.text),
+                          if (hasFilters)
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            SliverToBoxAdapter(
+              child: Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Weekly Menu',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.text,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Select a day to see scheduled meals',
+                      style: TextStyle(
+                        color: AppColors.subText,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Week day selector ───────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Container(
+                color: Colors.white,
+                child: Column(
+                  children: [
+                    const Divider(height: 1, color: AppColors.border),
+                    _WeekDayStrip(
+                      weekDays: _weekDays,
+                      selectedDay: _selectedDay,
+                      schedules: _schedules,
+                      onDaySelected: (day) =>
+                          setState(() => _selectedDay = day),
+                      isToday: _isToday,
+                      isPast: _isPast,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Day info bar ────────────────────────────────────────────────
+            if (!_isLoading && _error == null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              DateFormat('EEEE, d MMMM').format(_selectedDay),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.text,
+                              ),
+                            ),
+                            if (schedule != null)
+                              Text(
+                                '${filteredFoods.length} meal${filteredFoods.length == 1 ? '' : 's'}',
+                                style: const TextStyle(
+                                    color: AppColors.subText, fontSize: 12),
+                              )
+                            else
+                              const Text(
+                                'No schedule published',
+                                style: TextStyle(
+                                    color: AppColors.subText, fontSize: 12),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (hasFilters)
+                        GestureDetector(
+                          onTap: _resetFilters,
+                          child: const Text(
+                            'Reset',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // ── Content ─────────────────────────────────────────────────────
+            if (_isLoading)
+              SliverFillRemaining(child: _ListSkeleton())
+            else if (_error != null)
+              SliverFillRemaining(
+                child:
+                    _ErrorView(message: _error!, onRetry: _loadWeeklySchedules),
+              )
+            else if (schedule == null)
+              SliverFillRemaining(
+                child: _EmptyView(
+                  icon: Icons.event_busy_rounded,
+                  title: 'No menu for this day',
+                  subtitle: _isPast(_selectedDay)
+                      ? 'This day has already passed.'
+                      : 'No schedule has been published yet.',
+                ),
+              )
+            else if (filteredFoods.isEmpty)
+              SliverFillRemaining(
+                child: _EmptyView(
+                  icon: Icons.no_meals_rounded,
+                  title: 'No meals match filters',
+                  subtitle: 'Try resetting your filters.',
+                  onReset: hasFilters ? _resetFilters : null,
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
+                sliver: SliverList.separated(
+                  itemCount: filteredFoods.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 14),
+                  itemBuilder: (_, i) {
+                    final food = filteredFoods[i];
+                    return _WeeklyFoodCard(
+                      food: food,
+                      onTap: () => _open(food),
+                      onAdd: food.canAddToCart ? () => _add(food) : null,
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _buildErrorView() {
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
+// ─────────────────────────────────────────────────────────────────────────────
+// Week day strip
+// ─────────────────────────────────────────────────────────────────────────────
+class _WeekDayStrip extends StatelessWidget {
+  final List<DateTime> weekDays;
+  final DateTime selectedDay;
+  final List<MenuSchedule> schedules;
+  final ValueChanged<DateTime> onDaySelected;
+  final bool Function(DateTime) isToday;
+  final bool Function(DateTime) isPast;
+
+  const _WeekDayStrip({
+    required this.weekDays,
+    required this.selectedDay,
+    required this.schedules,
+    required this.onDaySelected,
+    required this.isToday,
+    required this.isPast,
+  });
+
+  bool _hasSchedule(DateTime day) {
+    for (final s in schedules) {
+      if (s.date.year == day.year &&
+          s.date.month == day.month &&
+          s.date.day == day.day &&
+          s.status == 'PUBLISHED') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 82,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        itemCount: weekDays.length,
+        itemBuilder: (_, i) {
+          final day = weekDays[i];
+          final isSelected = day.year == selectedDay.year &&
+              day.month == selectedDay.month &&
+              day.day == selectedDay.day;
+          final today = isToday(day);
+          final past = isPast(day);
+          final hasSchedule = _hasSchedule(day);
+
+          return GestureDetector(
+            onTap: () => onDaySelected(day),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 52,
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppColors.primary
+                    : today
+                        ? AppColors.primarySoft
+                        : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                border: isSelected
+                    ? null
+                    : today
+                        ? Border.all(color: AppColors.primary, width: 1.5)
+                        : null,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    DateFormat('E').format(day), // Mon, Tue…
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected
+                          ? Colors.white.withValues(alpha: 0.8)
+                          : past
+                              ? AppColors.subText.withValues(alpha: 0.5)
+                              : AppColors.subText,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${day.day}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: isSelected
+                          ? Colors.white
+                          : past
+                              ? AppColors.subText.withValues(alpha: 0.4)
+                              : AppColors.text,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  // Dot if has schedule
+                  Container(
+                    width: 5,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: hasSchedule
+                          ? (isSelected
+                              ? Colors.white.withValues(alpha: 0.7)
+                              : AppColors.success)
+                          : Colors.transparent,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Weekly food card
+// ─────────────────────────────────────────────────────────────────────────────
+class _WeeklyFoodCard extends StatelessWidget {
+  final Food food;
+  final VoidCallback? onTap;
+  final VoidCallback? onAdd;
+
+  const _WeeklyFoodCard({required this.food, this.onTap, this.onAdd});
+
+  String? _resolveImageUrl(Food food) {
+    final u = food.imageUrl;
+    if (u == null || u.isEmpty) return null;
+    if (u.startsWith('http')) return u;
+    final r = Uri.parse(ApiClient.baseUrl);
+    return '${r.scheme}://${r.authority}${u.startsWith('/') ? u : '/$u'}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = _resolveImageUrl(food);
+    final isSoldOut = !food.canAddToCart;
+    final remaining = food.remainingServings;
+
+    return GestureDetector(
+      onTap: onTap,
       child: Container(
-        height: MediaQuery.of(context).size.height - 150,
-        alignment: Alignment.center,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
           children: [
-            const Icon(
-              Icons.wifi_off_rounded,
-              size: 56,
-              color: AppColors.subText,
+            // Image / placeholder
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.horizontal(left: Radius.circular(20)),
+              child: Stack(
+                children: [
+                  SizedBox(
+                    width: 110,
+                    height: 110,
+                    child: imageUrl != null
+                        ? Image.network(imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _imgPlaceholder(food))
+                        : _imgPlaceholder(food),
+                  ),
+                  if (isSoldOut)
+                    Container(
+                      width: 110,
+                      height: 110,
+                      color: Colors.black.withValues(alpha: 0.4),
+                      alignment: Alignment.center,
+                      child: const Text(
+                        'SOLD\nOUT',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Could not load weekly menu',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _error!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.subText),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _loadWeeklySchedules,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+            // Info
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Tags
+                    Row(
+                      children: [
+                        if (food.mealType != null)
+                          _tag(food.mealType!, AppColors.primary,
+                              AppColors.primarySoft),
+                        if (food.category.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          _tag(food.category, AppColors.subText,
+                              AppColors.muted),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      food.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.text,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              CurrencyFormatter.vnd(food.price),
+                              style: const TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 15,
+                              ),
+                            ),
+                            if (remaining != null && !isSoldOut)
+                              Text(
+                                '$remaining left',
+                                style: const TextStyle(
+                                  color: AppColors.subText,
+                                  fontSize: 11,
+                                ),
+                              ),
+                          ],
+                        ),
+                        GestureDetector(
+                          onTap: onAdd,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: isSoldOut
+                                  ? AppColors.muted
+                                  : AppColors.primary,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              isSoldOut
+                                  ? Icons.remove_rounded
+                                  : Icons.add_rounded,
+                              color:
+                                  isSoldOut ? AppColors.subText : Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -707,231 +753,85 @@ class _WeeklyMenuScreenState extends ConsumerState<WeeklyMenuScreen> {
     );
   }
 
-  Widget _buildBody(
-    List<Food> foods,
-    List<Food> filteredFoods,
-    bool hasActiveFilters,
-  ) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(24),
-      children: [
-        const Text(
-          'Weekly meal planning schedule',
-          style: TextStyle(color: AppColors.subText),
-        ),
-        const SizedBox(height: 16),
-        _buildCalendarRow(),
-        const SizedBox(height: 24),
-        Text(
-          DateFormat('EEEE, d MMMM yyyy').format(_selectedDay),
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            color: AppColors.primary,
-          ),
-        ),
-        if (hasActiveFilters) ...[
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${filteredFoods.length} of ${foods.length} foods',
-                  style: const TextStyle(
-                    color: AppColors.subText,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: _resetFilters,
-                icon: const Icon(Icons.close, size: 18),
-                label: const Text('Clear'),
-              ),
-            ],
-          ),
-        ],
-        const SizedBox(height: 16),
-        if (foods.isEmpty)
-          _buildEmptySchedule()
-        else if (filteredFoods.isEmpty)
-          _buildEmptyFilter()
-        else
-          ...filteredFoods.map(
-            (food) => Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: MenuFoodCard(
-                food: food,
-                onTap: () => _open(food),
-                onAdd: food.canAddToCart ? () => _add(food) : null,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildEmptySchedule() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 48),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.no_meals_outlined,
-            size: 56,
-            color: AppColors.subText,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'No menu scheduled for this day',
-            style: TextStyle(color: AppColors.subText),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Menus are draft or not published yet.',
-            style: TextStyle(
-              color: AppColors.subText.withValues(alpha: 0.6),
-              fontSize: 12,
-            ),
-          ),
-        ],
+  Widget _tag(String text, Color color, Color bg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        style:
+            TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700),
       ),
     );
   }
 
-  Widget _buildEmptyFilter() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 48),
-      child: Column(
-        children: [
-          Icon(
-            Icons.filter_alt_off_rounded,
-            size: 52,
-            color: AppColors.subText,
-          ),
-          SizedBox(height: 12),
-          Text(
-            'No foods match this filter',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.subText),
-          ),
-        ],
+  Widget _imgPlaceholder(Food food) {
+    return Container(
+      width: 110,
+      height: 110,
+      color: AppColors.primarySoft,
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.restaurant_menu_rounded,
+        color: AppColors.primary,
+        size: 32,
       ),
-    );
-  }
-
-  Widget _buildCalendarRow() {
-    final dayNames = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: List.generate(7, (index) {
-        final day = _weekDays[index];
-        final isSelected = day.year == _selectedDay.year &&
-            day.month == _selectedDay.month &&
-            day.day == _selectedDay.day;
-
-        final now = DateTime.now();
-        final isToday = day.year == now.year &&
-            day.month == now.month &&
-            day.day == now.day;
-
-        return InkWell(
-          onTap: () {
-            setState(() {
-              _selectedDay = day;
-              _selectedMinPrice = null;
-              _selectedMaxPrice = null;
-            });
-          },
-          borderRadius: BorderRadius.circular(20),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? AppColors.primary
-                  : isToday
-                      ? AppColors.primarySoft.withValues(alpha: 0.3)
-                      : Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isSelected
-                    ? AppColors.primary
-                    : isToday
-                        ? AppColors.primarySoft
-                        : AppColors.border,
-                width: 1.5,
-              ),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  dayNames[index],
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : AppColors.subText,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  day.day.toString(),
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : AppColors.text,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }),
     );
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Weekly filter selection data class
+// ─────────────────────────────────────────────────────────────────────────────
 class _WeeklyFilterSelection {
   final String meal;
   final String category;
   final String availability;
-  final String sortOption;
   final int? minPrice;
   final int? maxPrice;
+  final String sortOption;
 
   const _WeeklyFilterSelection({
     required this.meal,
     required this.category,
     required this.availability,
+    this.minPrice,
+    this.maxPrice,
     required this.sortOption,
-    required this.minPrice,
-    required this.maxPrice,
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Weekly filter sheet
+// ─────────────────────────────────────────────────────────────────────────────
 class _WeeklyFilterSheet extends StatefulWidget {
-  final List<Food> foods;
+  final List<String> mealOptions;
+  final List<String> categoryOptions;
+  final int availableMinPrice;
+  final int availableMaxPrice;
+  final bool hasPriceData;
   final String selectedMeal;
   final String selectedCategory;
   final String selectedAvailability;
   final int? selectedMinPrice;
   final int? selectedMaxPrice;
   final String sortOption;
-  final String Function(Food food) mealLabel;
-  final String Function(Food food) categoryLabel;
 
   const _WeeklyFilterSheet({
-    required this.foods,
+    required this.mealOptions,
+    required this.categoryOptions,
+    required this.availableMinPrice,
+    required this.availableMaxPrice,
+    required this.hasPriceData,
     required this.selectedMeal,
     required this.selectedCategory,
     required this.selectedAvailability,
     required this.selectedMinPrice,
     required this.selectedMaxPrice,
     required this.sortOption,
-    required this.mealLabel,
-    required this.categoryLabel,
   });
 
   @override
@@ -939,379 +839,389 @@ class _WeeklyFilterSheet extends StatefulWidget {
 }
 
 class _WeeklyFilterSheetState extends State<_WeeklyFilterSheet> {
-  static const String _all = 'All';
-
-  late final List<String> _mealOptions;
-  late final List<String> _categoryOptions;
-  late final int _availableMinPrice;
-  late final int _availableMaxPrice;
-  late final bool _hasPriceData;
   late String _meal;
   late String _category;
   late String _availability;
   late String _sortOption;
-  late final TextEditingController _minPriceController;
-  late final TextEditingController _maxPriceController;
+  late TextEditingController _minCtrl;
+  late TextEditingController _maxCtrl;
   String? _priceError;
 
   @override
   void initState() {
     super.initState();
-    _mealOptions = _uniqueOptions(widget.foods.map(widget.mealLabel));
-    _categoryOptions = _uniqueOptions(widget.foods.map(widget.categoryLabel));
-    _availableMinPrice = _minPriceFor(widget.foods);
-    _availableMaxPrice = _maxPriceFor(widget.foods);
-    _hasPriceData = widget.foods.isNotEmpty && _availableMaxPrice > 0;
     _meal = widget.selectedMeal;
     _category = widget.selectedCategory;
     _availability = widget.selectedAvailability;
     _sortOption = widget.sortOption;
-    final initialMinPrice = widget.selectedMinPrice ?? _availableMinPrice;
-    final initialMaxPrice = widget.selectedMaxPrice ?? _availableMaxPrice;
-    _minPriceController = TextEditingController(
-      text: _hasPriceData ? initialMinPrice.toString() : '',
-    );
-    _maxPriceController = TextEditingController(
-      text: _hasPriceData ? initialMaxPrice.toString() : '',
-    );
+    _minCtrl = TextEditingController(
+        text: (widget.selectedMinPrice ?? widget.availableMinPrice).toString());
+    _maxCtrl = TextEditingController(
+        text: (widget.selectedMaxPrice ?? widget.availableMaxPrice).toString());
   }
 
   @override
   void dispose() {
-    _minPriceController.dispose();
-    _maxPriceController.dispose();
+    _minCtrl.dispose();
+    _maxCtrl.dispose();
     super.dispose();
   }
 
-  List<String> _uniqueOptions(Iterable<String> values) {
-    final normalized = values
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toSet()
-        .toList();
-    normalized.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    return normalized;
-  }
-
-  int _minPriceFor(List<Food> foods) {
-    if (foods.isEmpty) return 0;
-    return foods.map((food) => food.price).reduce((a, b) => a < b ? a : b);
-  }
-
-  int _maxPriceFor(List<Food> foods) {
-    if (foods.isEmpty) return 0;
-    return foods.map((food) => food.price).reduce((a, b) => a > b ? a : b);
-  }
-
-  void _clearPriceError() {
-    if (_priceError == null) return;
-    setState(() => _priceError = null);
-  }
-
-  void _resetFilters() {
-    setState(() {
-      _meal = _all;
-      _category = _all;
-      _availability = _all;
-      _sortOption = 'default';
-      _minPriceController.text = _hasPriceData ? '$_availableMinPrice' : '';
-      _maxPriceController.text = _hasPriceData ? '$_availableMaxPrice' : '';
-      _priceError = null;
-    });
-  }
-
-  void _applyFilters() {
+  void _apply() {
     int? minPrice;
     int? maxPrice;
-
-    if (_hasPriceData) {
-      final minPriceText = _minPriceController.text.trim();
-      final maxPriceText = _maxPriceController.text.trim();
-      minPrice = int.tryParse(minPriceText);
-      maxPrice = int.tryParse(maxPriceText);
-
-      if (minPriceText.isEmpty || maxPriceText.isEmpty) {
-        setState(
-          () => _priceError = 'Please enter both min and max price.',
-        );
-        return;
-      }
-      if (minPrice == null || maxPrice == null) {
-        setState(() => _priceError = 'Price must be a valid number.');
-        return;
-      }
-      if (minPrice > maxPrice) {
-        setState(
-          () => _priceError =
-              'Min price must be less than or equal to max price.',
-        );
-        return;
-      }
-      if (minPrice < _availableMinPrice || maxPrice > _availableMaxPrice) {
-        setState(
-          () => _priceError =
-              'Price must be between ${CurrencyFormatter.vnd(_availableMinPrice)} and ${CurrencyFormatter.vnd(_availableMaxPrice)}.',
-        );
-        return;
+    if (widget.hasPriceData) {
+      final min = int.tryParse(_minCtrl.text.trim());
+      final max = int.tryParse(_maxCtrl.text.trim());
+      if (min != null && max != null) {
+        if (min > max) {
+          setState(() => _priceError = 'Min must be ≤ Max.');
+          return;
+        }
+        if (min != widget.availableMinPrice ||
+            max != widget.availableMaxPrice) {
+          minPrice = min;
+          maxPrice = max;
+        }
       }
     }
-
     Navigator.pop(
       context,
       _WeeklyFilterSelection(
         meal: _meal,
         category: _category,
         availability: _availability,
+        minPrice: minPrice,
+        maxPrice: maxPrice,
         sortOption: _sortOption,
-        minPrice: _hasPriceData ? minPrice : null,
-        maxPrice: _hasPriceData ? maxPrice : null,
       ),
     );
   }
 
-  Widget _buildSheetSection({
-    required String title,
-    required List<Widget> children,
-  }) {
+  void _clear() {
+    setState(() {
+      _meal = 'All';
+      _category = 'All';
+      _availability = 'All';
+      _sortOption = 'default';
+      _minCtrl.text = widget.availableMinPrice.toString();
+      _maxCtrl.text = widget.availableMaxPrice.toString();
+      _priceError = null;
+    });
+  }
+
+  Widget _chip(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+              color: selected ? AppColors.primary : AppColors.border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : AppColors.text,
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _section(String title, Widget content) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+        Text(title,
+            style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+                color: AppColors.subText)),
         const SizedBox(height: 10),
-        Wrap(spacing: 8, runSpacing: 8, children: children),
+        content,
       ],
-    );
-  }
-
-  Widget _filterChoiceChip({
-    required String label,
-    required bool selected,
-    required VoidCallback onSelected,
-  }) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onSelected(),
-      backgroundColor: Colors.white,
-      selectedColor: AppColors.primary,
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : AppColors.text,
-        fontWeight: FontWeight.w800,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: selected ? AppColors.primary : AppColors.border,
-          width: 1,
-        ),
-      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          24,
-          18,
-          24,
-          MediaQuery.of(context).viewInsets.bottom + 24,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Filter weekly menu',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              _buildSheetSection(
-                title: 'Meal',
-                children: [
-                  _filterChoiceChip(
-                    label: _all,
-                    selected: _meal == _all,
-                    onSelected: () => setState(() => _meal = _all),
-                  ),
-                  ..._mealOptions.map(
-                    (meal) => _filterChoiceChip(
-                      label: meal,
-                      selected: _meal == meal,
-                      onSelected: () => setState(() => _meal = meal),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _buildSheetSection(
-                title: 'Category',
-                children: [
-                  _filterChoiceChip(
-                    label: _all,
-                    selected: _category == _all,
-                    onSelected: () => setState(() => _category = _all),
-                  ),
-                  ..._categoryOptions.map(
-                    (category) => _filterChoiceChip(
-                      label: category,
-                      selected: _category == category,
-                      onSelected: () => setState(() => _category = category),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _buildSheetSection(
-                title: 'Availability',
-                children: [
-                  for (final option in const [_all, 'Available', 'Sold out'])
-                    _filterChoiceChip(
-                      label: option,
-                      selected: _availability == option,
-                      onSelected: () {
-                        setState(() => _availability = option);
-                      },
-                    ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Price',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 8),
-              _PriceErrorMessage(message: _priceError),
-              if (_hasPriceData) ...[
-                Text(
-                  '${CurrencyFormatter.vnd(_availableMinPrice)} - ${CurrencyFormatter.vnd(_availableMaxPrice)}',
-                  style: const TextStyle(
-                    color: AppColors.subText,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _minPriceController,
-                        keyboardType: TextInputType.number,
-                        onChanged: (_) => _clearPriceError(),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: const InputDecoration(
-                          labelText: 'Min price',
-                          suffixText: 'VND',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _maxPriceController,
-                        keyboardType: TextInputType.number,
-                        onChanged: (_) => _clearPriceError(),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: const InputDecoration(
-                          labelText: 'Max price',
-                          suffixText: 'VND',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ] else
-                const Text(
-                  'No price range available',
-                  style: TextStyle(color: AppColors.subText),
-                ),
-              const SizedBox(height: 20),
-              const Text(
-                'Sort by',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+          24, 0, 24, MediaQuery.of(context).viewInsets.bottom + 28),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 14),
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.border),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.sort, color: AppColors.subText),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: DropdownButton<String>(
-                        value: _sortOption,
-                        isExpanded: true,
-                        underline: const SizedBox.shrink(),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'default',
-                            child: Text('Schedule order'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'price_asc',
-                            child: Text('Price low to high'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'price_desc',
-                            child: Text('Price high to low'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'name_asc',
-                            child: Text('Name A-Z'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() => _sortOption = value);
-                        },
-                      ),
-                    ),
-                  ],
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(4),
                 ),
               ),
-              const SizedBox(height: 24),
-              Row(
+            ),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Filter & Sort',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // ── Meal ────────────────────────────────────────────
+            _section(
+              'Meal type',
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _resetFilters,
-                      child: const Text('Clear'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _applyFilters,
-                      child: const Text('Apply'),
-                    ),
-                  ),
+                  _chip('All', _meal == 'All',
+                      () => setState(() => _meal = 'All')),
+                  ...widget.mealOptions.map((m) =>
+                      _chip(m, _meal == m, () => setState(() => _meal = m))),
                 ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ── Category ────────────────────────────────────────
+            _section(
+              'Category',
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _chip('All', _category == 'All',
+                      () => setState(() => _category = 'All')),
+                  ...widget.categoryOptions.map((c) => _chip(
+                      c, _category == c, () => setState(() => _category = c))),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ── Availability ────────────────────────────────────
+            _section(
+              'Availability',
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: ['All', 'Available', 'Sold out']
+                    .map((opt) => _chip(opt, _availability == opt,
+                        () => setState(() => _availability = opt)))
+                    .toList(),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ── Sort ────────────────────────────────────────────
+            _section(
+              'Sort by',
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final item in [
+                    {'key': 'default', 'label': 'Default'},
+                    {'key': 'price_asc', 'label': 'Price ↑'},
+                    {'key': 'price_desc', 'label': 'Price ↓'},
+                    {'key': 'name_asc', 'label': 'A → Z'},
+                  ])
+                    _chip(item['label']!, _sortOption == item['key'],
+                        () => setState(() => _sortOption = item['key']!)),
+                ],
+              ),
+            ),
+
+            // ── Price ───────────────────────────────────────────
+            if (widget.hasPriceData) ...[
+              const SizedBox(height: 20),
+              _section(
+                'Price range',
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${CurrencyFormatter.vnd(widget.availableMinPrice)} – ${CurrencyFormatter.vnd(widget.availableMaxPrice)}',
+                      style: const TextStyle(
+                          color: AppColors.subText, fontSize: 12),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _minCtrl,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly
+                            ],
+                            onChanged: (_) =>
+                                setState(() => _priceError = null),
+                            decoration: InputDecoration(
+                              labelText: 'Min (VND)',
+                              filled: true,
+                              fillColor: AppColors.muted,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 12),
+                            ),
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 10),
+                          child: Text('–', style: TextStyle(fontSize: 18)),
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: _maxCtrl,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly
+                            ],
+                            onChanged: (_) =>
+                                setState(() => _priceError = null),
+                            decoration: InputDecoration(
+                              labelText: 'Max (VND)',
+                              filled: true,
+                              fillColor: AppColors.muted,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_priceError != null) ...[
+                      const SizedBox(height: 6),
+                      Text(_priceError!,
+                          style: const TextStyle(
+                              color: AppColors.error, fontSize: 12)),
+                    ],
+                  ],
+                ),
               ),
             ],
+
+            const SizedBox(height: 28),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _clear,
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.border),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('Clear all',
+                        style: TextStyle(color: AppColors.subText)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    onPressed: _apply,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('Apply',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// List skeleton
+// ─────────────────────────────────────────────────────────────────────────────
+class _ListSkeleton extends StatefulWidget {
+  @override
+  State<_ListSkeleton> createState() => _ListSkeletonState();
+}
+
+class _ListSkeletonState extends State<_ListSkeleton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.4, end: 1.0)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Opacity(
+        opacity: _anim.value,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+          child: Column(
+            children: List.generate(
+              5,
+              (_) => Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                height: 110,
+                decoration: BoxDecoration(
+                  color: AppColors.muted,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -1319,21 +1229,94 @@ class _WeeklyFilterSheetState extends State<_WeeklyFilterSheet> {
   }
 }
 
-class _PriceErrorMessage extends StatelessWidget {
-  final String? message;
+// ─────────────────────────────────────────────────────────────────────────────
+// Error view
+// ─────────────────────────────────────────────────────────────────────────────
+class _ErrorView extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
 
-  const _PriceErrorMessage({required this.message});
+  const _ErrorView({required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: message == null ? 0 : 8),
-      child: Text(
-        message ?? '',
-        style: const TextStyle(
-          color: AppColors.error,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.wifi_off_rounded,
+                size: 56, color: AppColors.subText),
+            const SizedBox(height: 16),
+            const Text('Could not load schedule',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.subText, fontSize: 13)),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try again'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Empty view
+// ─────────────────────────────────────────────────────────────────────────────
+class _EmptyView extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onReset;
+
+  const _EmptyView({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onReset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 56, color: AppColors.subText),
+            const SizedBox(height: 16),
+            Text(title,
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Text(subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.subText, fontSize: 13)),
+            if (onReset != null) ...[
+              const SizedBox(height: 20),
+              TextButton.icon(
+                onPressed: onReset,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Reset filters'),
+                style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+              ),
+            ],
+          ],
         ),
       ),
     );
