@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_assets.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../models/food.dart';
@@ -18,8 +19,46 @@ import '../menu/always_available_screen.dart';
 import '../menu/today_menu_screen.dart';
 import 'main_shell.dart';
 
+// ---------------------------------------------------------------------------
+// Small color helpers (kept local to this file). Used to derive gradient
+// shades from AppColors.primary without touching app_colors.dart.
+// ---------------------------------------------------------------------------
+Color _darken(Color color, [double amount = .15]) {
+  final hsl = HSLColor.fromColor(color);
+  return hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0)).toColor();
+}
+
+LinearGradient _brandGradient(
+  Color base, {
+  double darkenAmount = .16,
+  AlignmentGeometry begin = Alignment.topLeft,
+  AlignmentGeometry end = Alignment.bottomRight,
+}) {
+  return LinearGradient(
+    begin: begin,
+    end: end,
+    colors: [base, _darken(base, darkenAmount)],
+  );
+}
+
+const List<List<Color>> _accentGradients = [
+  [Color(0xFFFF7A59), Color(0xFFFF3D71)],
+  [Color(0xFF36D1DC), Color(0xFF5B86E5)],
+  [Color(0xFFF7971E), Color(0xFFFFD200)],
+  [Color(0xFF9D50BB), Color(0xFF6E48AA)],
+  [Color(0xFF11998E), Color(0xFF38EF7D)],
+  [Color(0xFFFF5F6D), Color(0xFFFFC371)],
+];
+
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
+  final int unreadNotificationCount;
+  final VoidCallback? onNotificationTap;
+
+  const HomeScreen({
+    super.key,
+    this.unreadNotificationCount = 0,
+    this.onNotificationTap,
+  });
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -28,6 +67,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final FoodService _foodService = FoodService(ApiClient());
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  final GlobalKey _categoriesKey = GlobalKey();
 
   List<Food> _menuFoods = [];
   List<Food> _regularFoods = [];
@@ -59,6 +100,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void dispose() {
     _searchDebounce?.cancel();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -71,8 +113,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
       if (!mounted) return;
       setState(() {
-        _menuFoods = results[0].take(1).toList();
-        _regularFoods = results[1].take(2).toList();
+        // Take a bit more than before so the home screen has more content
+        // to browse, similar to a ShopeeFood-style feed.
+        _menuFoods = results[0].take(6).toList();
+        _regularFoods = results[1].take(4).toList();
         _isLoading = false;
       });
     } catch (_) {
@@ -204,7 +248,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (_) {
         return _SearchFilterSheet(
@@ -248,6 +292,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  void _focusSearch() {
+    FocusScope.of(context).requestFocus(_searchFocusNode);
+  }
+
+  void _scrollToCategories() {
+    final ctx = _categoriesKey.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOut,
+    );
+  }
+
   Future<void> _add(BuildContext context, WidgetRef ref, Food food) async {
     try {
       await ref.read(cartProvider.notifier).addItem(food);
@@ -276,24 +334,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     final menuFood = _menuFoods.isNotEmpty ? _menuFoods.first : null;
+    final moreMenuFoods = _menuFoods.length > 1 ? _menuFoods.sublist(1) : <Food>[];
     final regularFoods = _regularFoods;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F8),
       body: SafeArea(
+        bottom: false,
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            _TopBar(),
-            _SearchBar(
-              controller: _searchController,
+            _TopBar(
+              searchController: _searchController,
+              searchFocusNode: _searchFocusNode,
               query: _searchQuery,
               hasActiveFilters: _hasActiveSearchFilters,
-              onChanged: _onSearchChanged,
+              onSearchChanged: _onSearchChanged,
               onClear: _clearSearch,
               onFilterTap: _openSearchFilterSheet,
+              unreadNotificationCount: widget.unreadNotificationCount,
+              onNotificationTap: widget.onNotificationTap,
             ),
-            const SizedBox(height: 12),
             if (_searchQuery.isNotEmpty)
               _SearchResults(
                 isSearching: _isSearching,
@@ -303,19 +364,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onFoodTap: (food) => _openDetail(context, food),
               )
             else ...[
-              _PromoBanner(),
+              const SizedBox(height: 16),
+              _QuickActionsRow(
+                onTodayMenu: () =>
+                    Navigator.pushNamed(context, TodayMenuScreen.routeName),
+                onAlwaysAvailable: () => Navigator.pushNamed(
+                  context,
+                  AlwaysAvailableScreen.routeName,
+                ),
+                onCategories: _scrollToCategories,
+                onQuickSearch: _focusSearch,
+              ),
+              const SizedBox(height: 18),
+              const _PromoCarousel(),
               _SectionHeader(
-                title: 'Categories',
-                action: 'See all',
-                onAction: () {},
+                key: _categoriesKey,
+                title: 'Danh mục',
+                action: 'Xem tất cả',
+                onAction: _scrollToCategories,
               ),
               _CategoryRow(
                 categories: _searchCategories,
                 onCategoryTap: _openMenuCategory,
               ),
               _SectionHeader(
-                title: 'Today Menu',
-                action: 'See all',
+                title: 'Thực đơn hôm nay',
+                action: 'Xem thêm',
                 onAction: () =>
                     Navigator.pushNamed(context, TodayMenuScreen.routeName),
               ),
@@ -330,9 +404,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         : null,
                   ),
                 ),
+              if (moreMenuFoods.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                _HorizontalFoodList(
+                  foods: moreMenuFoods,
+                  onFoodTap: (food) => _openDetail(context, food),
+                  onAdd: (food) => _add(context, ref, food),
+                ),
+              ],
               _SectionHeader(
-                title: 'Always Available',
-                action: 'See all',
+                title: 'Luôn có sẵn',
+                action: 'Xem thêm',
                 onAction: () => Navigator.pushNamed(
                   context,
                   AlwaysAvailableScreen.routeName,
@@ -370,162 +452,642 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Top bar — gradient header now hosts the search field directly (in the
+// spot the "Good morning" greeting used to occupy), ShopeeFood-style.
+// ---------------------------------------------------------------------------
 class _TopBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-      child: Row(
-        children: [
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Good morning, Student!',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                  ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'Nguyen Van A',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF1A1A1A),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _IconCircle(
-            child: const Icon(Icons.notifications_outlined, size: 20),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            width: 36,
-            height: 36,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.primary,
-            ),
-            alignment: Alignment.center,
-            child: const Text(
-              'NA',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _IconCircle extends StatelessWidget {
-  final Widget child;
-
-  const _IconCircle({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: Color(0xFFF5F5F5),
-      ),
-      alignment: Alignment.center,
-      child: child,
-    );
-  }
-}
-
-class _SearchBar extends StatelessWidget {
-  final TextEditingController controller;
+  final TextEditingController searchController;
+  final FocusNode searchFocusNode;
   final String query;
   final bool hasActiveFilters;
-  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSearchChanged;
   final VoidCallback onClear;
   final VoidCallback onFilterTap;
+  final int unreadNotificationCount;
+  final VoidCallback? onNotificationTap;
 
-  const _SearchBar({
-    required this.controller,
+  const _TopBar({
+    required this.searchController,
+    required this.searchFocusNode,
     required this.query,
     required this.hasActiveFilters,
-    required this.onChanged,
+    required this.onSearchChanged,
     required this.onClear,
     required this.onFilterTap,
+    this.unreadNotificationCount = 0,
+    this.onNotificationTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 44,
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.only(left: 14),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.primary, _darken(AppColors.primary, .18)],
+        ),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26)),
+        boxShadow: [
           BoxShadow(
-            blurRadius: 12,
-            offset: Offset(0, 4),
-            color: Color(0x14000000),
+            color: AppColors.primary.withValues(alpha: 0.28),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.search, size: 22, color: Color(0xFF9E9E9E)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              textInputAction: TextInputAction.search,
-              decoration: const InputDecoration(
-                hintText: 'Search food, drinks, snacks...',
-                hintStyle: TextStyle(
-                  color: Color(0xFF9E9E9E),
-                  fontSize: 14,
+          // Compact profile row — greeting is now secondary, small.
+          Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  border: Border.all(color: Colors.white, width: 1.5),
                 ),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 10),
+                alignment: Alignment.center,
+                child: Text(
+                  'NA',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
               ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Chào buổi sáng, Nguyen Van A',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              _NotificationBell(
+                unreadCount: unreadNotificationCount,
+                onTap: onNotificationTap,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Search bar — the prominent element in the header now.
+          Container(
+            height: 48,
+            padding: const EdgeInsets.only(left: 16, right: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                  color: Colors.black.withValues(alpha: 0.12),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.search, size: 22, color: AppColors.primary.withValues(alpha: 0.55)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: searchController,
+                    focusNode: searchFocusNode,
+                    onChanged: onSearchChanged,
+                    textInputAction: TextInputAction.search,
+                    decoration: const InputDecoration(
+                      hintText: 'Search food, drinks, snacks...',
+                      hintStyle: TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                if (query.isNotEmpty)
+                  IconButton(
+                    tooltip: 'Clear',
+                    onPressed: onClear,
+                    icon: const Icon(Icons.close, size: 18, color: Color(0xFF9E9E9E)),
+                  ),
+                InkWell(
+                  onTap: onFilterTap,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      gradient: hasActiveFilters ? _brandGradient(AppColors.primary) : null,
+                      color: hasActiveFilters ? null : const Color(0xFFF5F5F5),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    alignment: Alignment.center,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Icon(
+                          Icons.tune_rounded,
+                          size: 17,
+                          color: hasActiveFilters ? Colors.white : AppColors.primary,
+                        ),
+                        if (hasActiveFilters)
+                          const Positioned(
+                            top: -3,
+                            right: -3,
+                            child: CircleAvatar(radius: 4, backgroundColor: Color(0xFFFFD200)),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          IconButton(
-            tooltip: 'Filter',
-            onPressed: onFilterTap,
-            icon: Badge(
-              isLabelVisible: hasActiveFilters,
-              child: const Icon(Icons.tune_rounded, size: 18),
-            ),
-            color: AppColors.primary,
-          ),
-          if (query.isNotEmpty)
-            IconButton(
-              tooltip: 'Clear',
-              onPressed: onClear,
-              icon: const Icon(Icons.close, size: 18),
-            ),
         ],
       ),
     );
   }
 }
 
+class _NotificationBell extends StatelessWidget {
+  final int unreadCount;
+  final VoidCallback? onTap;
+
+  const _NotificationBell({required this.unreadCount, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasUnread = unreadCount > 0;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(15),
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: 0.18),
+        ),
+        alignment: Alignment.center,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Icon(Icons.notifications_outlined, size: 16, color: Colors.white),
+            if (hasUnread)
+              Positioned(
+                top: -4,
+                right: -6,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 14),
+                  height: 14,
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFD200),
+                    borderRadius: BorderRadius.all(Radius.circular(7)),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    unreadCount > 99 ? '99+' : unreadCount.toString(),
+                    style: const TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1A1A1A),
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Quick actions — horizontal shortcuts to the sections/screens that already
+// exist in the app (no new routes, no invented data).
+// ---------------------------------------------------------------------------
+class _QuickActionsRow extends StatelessWidget {
+  final VoidCallback onTodayMenu;
+  final VoidCallback onAlwaysAvailable;
+  final VoidCallback onCategories;
+  final VoidCallback onQuickSearch;
+
+  const _QuickActionsRow({
+    required this.onTodayMenu,
+    required this.onAlwaysAvailable,
+    required this.onCategories,
+    required this.onQuickSearch,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      (
+        icon: Icons.today_rounded,
+        label: 'Thực đơn\nhôm nay',
+        gradient: _accentGradients[0],
+        onTap: onTodayMenu,
+      ),
+      (
+        icon: Icons.storefront_rounded,
+        label: 'Luôn có\nsẵn',
+        gradient: _accentGradients[1],
+        onTap: onAlwaysAvailable,
+      ),
+      (
+        icon: Icons.grid_view_rounded,
+        label: 'Danh\nmục',
+        gradient: _accentGradients[2],
+        onTap: onCategories,
+      ),
+      (
+        icon: Icons.flash_on_rounded,
+        label: 'Tìm nhanh\nmón',
+        gradient: _accentGradients[3],
+        onTap: onQuickSearch,
+      ),
+    ];
+
+    return SizedBox(
+      height: 90,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (_, i) {
+          final item = items[i];
+          return InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: item.onTap,
+            child: Container(
+              width: 78,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: item.gradient,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(item.icon, size: 20, color: Colors.white),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    item.label,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    style: const TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF6B6B6B),
+                      height: 1.15,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Promo carousel — swipeable banner with a dot indicator, ShopeeFood-style.
+// Slides link to the real Today Menu / Always Available screens.
+// ---------------------------------------------------------------------------
+class _PromoCarousel extends StatefulWidget {
+  const _PromoCarousel();
+
+  @override
+  State<_PromoCarousel> createState() => _PromoCarouselState();
+}
+
+class _PromoCarouselState extends State<_PromoCarousel> {
+  final PageController _pageController = PageController();
+  Timer? _autoPlayTimer;
+  int _page = 0;
+
+  late final List<_PromoSlide> _slides = [
+    _PromoSlide(
+      eyebrow: "TODAY'S DEAL",
+      title: 'Chỉ có tại\nCanteen',
+      cta: 'Đặt ngay!',
+      icon: Icons.fastfood_rounded,
+      imagePath: AppAssets.banhmi,
+      onTap: () => Navigator.pushNamed(context, TodayMenuScreen.routeName),
+    ),
+    _PromoSlide(
+      eyebrow: 'THỰC ĐƠN HÔM NAY',
+      title: 'Món mới\nmỗi ngày',
+      cta: 'Xem thực đơn',
+      icon: Icons.restaurant_menu_rounded,
+      imagePath: AppAssets.hutieu,
+      onTap: () => Navigator.pushNamed(context, TodayMenuScreen.routeName),
+    ),
+    _PromoSlide(
+      eyebrow: 'LUÔN CÓ SẴN',
+      title: 'Đặt là\ncó ngay',
+      cta: 'Khám phá',
+      icon: Icons.bolt_rounded,
+      imagePath: AppAssets.goicuon,
+      onTap: () => Navigator.pushNamed(context, AlwaysAvailableScreen.routeName),
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _autoPlayTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted || !_pageController.hasClients) return;
+      final next = (_page + 1) % _slides.length;
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoPlayTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        SizedBox(
+          height: 130,
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: _slides.length,
+            onPageChanged: (i) => setState(() => _page = i),
+            itemBuilder: (_, i) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _PromoBannerCard(slide: _slides[i]),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_slides.length, (i) {
+            final active = i == _page;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: active ? 18 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: active
+                    ? AppColors.primary
+                    : AppColors.primary.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+}
+
+class _PromoSlide {
+  final String eyebrow;
+  final String title;
+  final String cta;
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? imagePath;
+
+  const _PromoSlide({
+    required this.eyebrow,
+    required this.title,
+    required this.cta,
+    required this.icon,
+    required this.onTap,
+    this.imagePath,
+  });
+}
+
+class _PromoBannerCard extends StatelessWidget {
+  final _PromoSlide slide;
+
+  const _PromoBannerCard({required this.slide});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = slide.imagePath != null;
+
+    return InkWell(
+      onTap: slide.onTap,
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColors.primary, _darken(AppColors.primary, .22)],
+          ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.35),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            if (hasImage)
+              // Ảnh nền phủ toàn bộ banner.
+              Positioned.fill(
+                child: Image.asset(
+                  slide.imagePath!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              )
+            else
+              Positioned(
+                right: -30,
+                top: -30,
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.10),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            if (hasImage)
+              // Lớp phủ gradient tối để chữ trắng vẫn đọc rõ trên ảnh.
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.55),
+                        Colors.black.withValues(alpha: 0.15),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else
+              Positioned(
+                right: 16,
+                bottom: 12,
+                child: Icon(
+                  slide.icon,
+                  size: 64,
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    slide.eyebrow,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  Text(
+                    slide.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w900,
+                      height: 1.15,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          slide.cta,
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.primary),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Horizontal food list — lets users browse more items than a single hero
+// card, without needing new backend fields (reuses Food model as-is).
+// ---------------------------------------------------------------------------
+class _HorizontalFoodList extends StatelessWidget {
+  final List<Food> foods;
+  final ValueChanged<Food> onFoodTap;
+  final ValueChanged<Food> onAdd;
+
+  const _HorizontalFoodList({
+    required this.foods,
+    required this.onFoodTap,
+    required this.onAdd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 232,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: foods.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (_, i) {
+          final food = foods[i];
+          return SizedBox(
+            width: 158,
+            child: RegularFoodCard(
+              food: food,
+              onTap: () => onFoodTap(food),
+              onAdd: food.canAddToCart ? () => onAdd(food) : null,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Search results
+// ---------------------------------------------------------------------------
 class _SearchResults extends StatelessWidget {
   final bool isSearching;
   final String? error;
@@ -563,16 +1125,26 @@ class _SearchResults extends StatelessWidget {
     if (foods.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 42),
-        child: Text(
-          'No foods found for "$query"',
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: AppColors.subText),
+        child: Column(
+          children: [
+            Icon(
+              Icons.search_off_rounded,
+              size: 40,
+              color: AppColors.primary.withValues(alpha: 0.35),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'No foods found for "$query"',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.subText),
+            ),
+          ],
         ),
       );
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -612,18 +1184,17 @@ class _SearchFoodTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: AppColors.primary.withValues(alpha: 0.06),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -639,10 +1210,7 @@ class _SearchFoodTile extends StatelessWidget {
                     food.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                    ),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -656,18 +1224,40 @@ class _SearchFoodTile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    CurrencyFormatter.vnd(food.price),
-                    style: const TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w900,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primary.withValues(alpha: 0.14),
+                          AppColors.primary.withValues(alpha: 0.05),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      CurrencyFormatter.vnd(food.price),
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 10),
-            const Icon(Icons.chevron_right, color: AppColors.subText),
+            Container(
+              width: 30,
+              height: 30,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF5F5F5),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Icon(Icons.chevron_right, size: 18, color: AppColors.subText),
+            ),
           ],
         ),
       ),
@@ -675,6 +1265,9 @@ class _SearchFoodTile extends StatelessWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Search filter sheet
+// ---------------------------------------------------------------------------
 class _SearchFilterSelection {
   final String? categoryId;
   final int minPrice;
@@ -823,21 +1416,23 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
     required bool selected,
     required VoidCallback onSelected,
   }) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onSelected(),
-      backgroundColor: Colors.white,
-      selectedColor: AppColors.primary,
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : AppColors.text,
-        fontWeight: FontWeight.w800,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: selected ? AppColors.primary : AppColors.border,
-          width: 1,
+    return GestureDetector(
+      onTap: onSelected,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        decoration: BoxDecoration(
+          gradient: selected ? _brandGradient(AppColors.primary) : null,
+          color: selected ? null : const Color(0xFFF5F5F7),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : AppColors.text,
+            fontWeight: FontWeight.w800,
+            fontSize: 13,
+          ),
         ),
       ),
     );
@@ -851,7 +1446,7 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
       child: Padding(
         padding: EdgeInsets.fromLTRB(
           24,
-          18,
+          14,
           24,
           MediaQuery.of(context).viewInsets.bottom + 24,
         ),
@@ -860,15 +1455,23 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0E0E0),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
               Row(
                 children: [
                   const Expanded(
                     child: Text(
                       'Filter search',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                      ),
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
                     ),
                   ),
                   IconButton(
@@ -877,14 +1480,18 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
-              const Text(
-                'Category',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
+              const SizedBox(height: 14),
+              const Text('Category', style: TextStyle(fontWeight: FontWeight.w900)),
               const SizedBox(height: 10),
               if (widget.isLoadingCategories)
-                const LinearProgressIndicator(minHeight: 2)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    minHeight: 3,
+                    color: AppColors.primary,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                  ),
+                )
               else
                 Wrap(
                   spacing: 8,
@@ -907,10 +1514,7 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                   ],
                 ),
               const SizedBox(height: 22),
-              const Text(
-                'Price',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
+              const Text('Price', style: TextStyle(fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
               _PriceErrorMessage(message: _priceError),
               if (_hasPriceRange) ...[
@@ -921,12 +1525,16 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                         controller: _minPriceController,
                         keyboardType: TextInputType.number,
                         onChanged: (_) => _clearPriceError(),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: const InputDecoration(
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: InputDecoration(
                           labelText: 'Min price',
                           suffixText: 'VND',
+                          filled: true,
+                          fillColor: const Color(0xFFF5F5F7),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
                       ),
                     ),
@@ -936,12 +1544,16 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                         controller: _maxPriceController,
                         keyboardType: TextInputType.number,
                         onChanged: (_) => _clearPriceError(),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: const InputDecoration(
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: InputDecoration(
                           labelText: 'Max price',
                           suffixText: 'VND',
+                          filled: true,
+                          fillColor: const Color(0xFFF5F5F7),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
                       ),
                     ),
@@ -952,21 +1564,18 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                   'No price range available',
                   style: TextStyle(color: AppColors.subText),
                 ),
-              const SizedBox(height: 18),
-              const Text(
-                'Sort by',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
+              const SizedBox(height: 20),
+              const Text('Sort by', style: TextStyle(fontWeight: FontWeight.w900)),
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.border),
-                  borderRadius: BorderRadius.circular(12),
+                  color: const Color(0xFFF5F5F7),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.sort, color: AppColors.subText),
+                    Icon(Icons.sort, color: AppColors.primary),
                     const SizedBox(width: 10),
                     Expanded(
                       child: DropdownButton<String>(
@@ -974,22 +1583,10 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                         isExpanded: true,
                         underline: const SizedBox.shrink(),
                         items: const [
-                          DropdownMenuItem(
-                            value: 'createdAt_desc',
-                            child: Text('Newest'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'price_asc',
-                            child: Text('Price low to high'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'price_desc',
-                            child: Text('Price high to low'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'name_asc',
-                            child: Text('Name A-Z'),
-                          ),
+                          DropdownMenuItem(value: 'createdAt_desc', child: Text('Newest')),
+                          DropdownMenuItem(value: 'price_asc', child: Text('Price low to high')),
+                          DropdownMenuItem(value: 'price_desc', child: Text('Price high to low')),
+                          DropdownMenuItem(value: 'name_asc', child: Text('Name A-Z')),
                         ],
                         onChanged: (value) {
                           if (value == null) return;
@@ -1004,20 +1601,45 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 26),
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        side: BorderSide(color: AppColors.border),
+                      ),
                       onPressed: _resetFilters,
-                      child: const Text('Clear'),
+                      child: const Text('Clear', style: TextStyle(fontWeight: FontWeight.w800)),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: _applyFilters,
-                      child: const Text('Apply'),
+                    flex: 2,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: _brandGradient(AppColors.primary),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.35),
+                            blurRadius: 14,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: _applyFilters,
+                        child: const Text('Apply', style: TextStyle(fontWeight: FontWeight.w800)),
+                      ),
                     ),
                   ),
                 ],
@@ -1051,88 +1673,16 @@ class _PriceErrorMessage extends StatelessWidget {
   }
 }
 
-class _PromoBanner extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 120,
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Row(
-        children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "TODAY'S DEAL",
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                  const Text(
-                    'Only at\nCanteen',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      height: 1.2,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'Order Now!',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Container(
-            width: 120,
-            color: const Color(0xFFE85C00),
-            alignment: Alignment.center,
-            child: const Icon(
-              Icons.fastfood_rounded,
-              size: 52,
-              color: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
+// ---------------------------------------------------------------------------
+// Section header — accent bar + title + "see all"
+// ---------------------------------------------------------------------------
 class _SectionHeader extends StatelessWidget {
   final String title;
   final String action;
   final VoidCallback onAction;
 
   const _SectionHeader({
+    super.key,
     required this.title,
     required this.action,
     required this.onAction,
@@ -1141,26 +1691,49 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1A1A1A),
-            ),
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+            ],
           ),
-          GestureDetector(
+          InkWell(
             onTap: onAction,
-            child: Text(
-              action,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    action,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, size: 16, color: AppColors.primary),
+                ],
               ),
             ),
           ),
@@ -1170,6 +1743,9 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Category row — colorful gradient icon chips
+// ---------------------------------------------------------------------------
 class _CategoryRow extends StatelessWidget {
   final List<FoodCategory> categories;
   final ValueChanged<FoodCategory> onCategoryTap;
@@ -1200,48 +1776,57 @@ class _CategoryRow extends StatelessWidget {
         .toList();
 
     return SizedBox(
-      height: 76,
+      height: 82,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: visibleCategories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (_, i) {
           final category = visibleCategories[i];
           final icon = _iconFor(category.name);
+          final gradientColors = _accentGradients[i % _accentGradients.length];
+
           return InkWell(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             onTap: () => onCategoryTap(category),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 50,
-                  height: 50,
+                  width: 54,
+                  height: 54,
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: const Color(0xFFEBEBEB),
-                      width: 0.5,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: gradientColors,
                     ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: gradientColors.first.withValues(alpha: 0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
                   alignment: Alignment.center,
-                  child: Icon(
-                    icon,
-                    size: 22,
-                    color: const Color(0xFF888888),
-                  ),
+                  child: Icon(icon, size: 24, color: Colors.white),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  category.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF888888),
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: 60,
+                  child: Text(
+                    category.name,
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF6B6B6B),
+                    ),
                   ),
                 ),
               ],

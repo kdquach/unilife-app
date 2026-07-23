@@ -39,7 +39,6 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   late int _index;
-  late final List<Widget> _screens;
   final NotificationService _notificationService =
       NotificationService(ApiClient());
   final NotificationSocketService _notificationSocketService =
@@ -52,17 +51,6 @@ class _MainShellState extends ConsumerState<MainShell> {
   void initState() {
     super.initState();
     _index = widget.initialIndex;
-    _screens = [
-      const HomeScreen(),
-      MenuScreen(
-        preselectedCategoryId: widget.initialMenuCategoryId,
-        preselectedCategoryName: widget.initialMenuCategoryName,
-        preselectedTodayOnly: widget.initialMenuTodayOnly,
-      ),
-      const CartScreen(showBackButton: false),
-      const OrderListScreen(showBackButton: false),
-      const ProfileScreen(),
-    ];
     _initializeNotifications();
   }
 
@@ -97,6 +85,11 @@ class _MainShellState extends ConsumerState<MainShell> {
     } catch (_) {}
   }
 
+  Future<void> _openNotifications() async {
+    await Navigator.pushNamed(context, NotificationsScreen.routeName);
+    await _refreshNotificationCount();
+  }
+
   Future<void> _handleDestinationSelected(int value) async {
     const restrictedTabs = {2, 3, 4};
     if (restrictedTabs.contains(value)) {
@@ -116,8 +109,23 @@ class _MainShellState extends ConsumerState<MainShell> {
     final cartState = ref.watch(cartProvider);
     final int cartItemsCount = cartState.value?.totalItems ?? 0;
 
+    final screens = [
+      HomeScreen(
+        unreadNotificationCount: _notificationUnreadCount,
+        onNotificationTap: _openNotifications,
+      ),
+      MenuScreen(
+        preselectedCategoryId: widget.initialMenuCategoryId,
+        preselectedCategoryName: widget.initialMenuCategoryName,
+        preselectedTodayOnly: widget.initialMenuTodayOnly,
+      ),
+      const CartScreen(showBackButton: false),
+      const OrderListScreen(showBackButton: false),
+      const ProfileScreen(),
+    ];
+
     return Scaffold(
-      body: _screens[_index],
+      body: screens[_index],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         indicatorColor: AppColors.primarySoft,
@@ -153,22 +161,6 @@ class _MainShellState extends ConsumerState<MainShell> {
               label: 'Profile'),
         ],
       ),
-      floatingActionButton: _index == 0
-          ? FloatingActionButton.small(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              onPressed: () async {
-                await Navigator.pushNamed(
-                    context, NotificationsScreen.routeName);
-                await _refreshNotificationCount();
-              },
-              child: Badge(
-                isLabelVisible: _notificationUnreadCount > 0,
-                label: Text(_notificationUnreadCount.toString()),
-                child: const Icon(Icons.notifications_outlined),
-              ),
-            )
-          : null,
     );
   }
 }
