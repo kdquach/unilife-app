@@ -327,9 +327,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFF7F7F8),
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -338,7 +338,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final regularFoods = _regularFoods;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F8),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         bottom: false,
         child: ListView(
@@ -364,7 +364,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onFoodTap: (food) => _openDetail(context, food),
               )
             else ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               _QuickActionsRow(
                 onTodayMenu: () =>
                     Navigator.pushNamed(context, TodayMenuScreen.routeName),
@@ -375,7 +375,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onCategories: _scrollToCategories,
                 onQuickSearch: _focusSearch,
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
               const _PromoCarousel(),
               _SectionHeader(
                 key: _categoriesKey,
@@ -395,7 +395,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               if (menuFood != null)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: MenuFoodCard(
                     food: menuFood,
                     onTap: () => _openDetail(context, menuFood),
@@ -405,7 +405,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
               if (moreMenuFoods.isNotEmpty) ...[
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 _HorizontalFoodList(
                   foods: moreMenuFoods,
                   onFoodTap: (food) => _openDetail(context, food),
@@ -421,7 +421,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
                 child: GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -430,7 +430,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     crossAxisCount: 2,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
-                    childAspectRatio: 0.72,
+                    mainAxisExtent: 192,
                   ),
                   itemBuilder: (_, i) {
                     final food = regularFoods[i];
@@ -921,20 +921,22 @@ class _PromoBannerCard extends StatelessWidget {
 
     return InkWell(
       onTap: slide.onTap,
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(18),
+      splashColor: Colors.white.withValues(alpha: 0.15),
+      highlightColor: Colors.white.withValues(alpha: 0.08),
       child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [AppColors.primary, _darken(AppColors.primary, .22)],
+            colors: [AppColors.primary, AppColors.primaryDark],
           ),
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.35),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
+              color: AppColors.primary.withValues(alpha: 0.15),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -942,7 +944,6 @@ class _PromoBannerCard extends StatelessWidget {
         child: Stack(
           children: [
             if (hasImage)
-              // Ảnh nền phủ toàn bộ banner.
               Positioned.fill(
                 child: Image.asset(
                   slide.imagePath!,
@@ -952,19 +953,18 @@ class _PromoBannerCard extends StatelessWidget {
               )
             else
               Positioned(
-                right: -30,
-                top: -30,
+                right: -20,
+                top: -20,
                 child: Container(
-                  width: 120,
-                  height: 120,
+                  width: 100,
+                  height: 100,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.10),
+                    color: Colors.white.withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                   ),
                 ),
               ),
             if (hasImage)
-              // Lớp phủ gradient tối để chữ trắng vẫn đọc rõ trên ảnh.
               Positioned.fill(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -972,8 +972,8 @@ class _PromoBannerCard extends StatelessWidget {
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                       colors: [
-                        Colors.black.withValues(alpha: 0.55),
-                        Colors.black.withValues(alpha: 0.15),
+                        Colors.black.withValues(alpha: 0.4),
+                        Colors.black.withValues(alpha: 0.1),
                       ],
                     ),
                   ),
@@ -985,8 +985,8 @@ class _PromoBannerCard extends StatelessWidget {
                 bottom: 12,
                 child: Icon(
                   slide.icon,
-                  size: 64,
-                  color: Colors.white.withValues(alpha: 0.9),
+                  size: 56,
+                  color: Colors.white.withValues(alpha: 0.85),
                 ),
               ),
             Padding(
@@ -997,27 +997,27 @@ class _PromoBannerCard extends StatelessWidget {
                 children: [
                   Text(
                     slide.eyebrow,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.0,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.8,
                     ),
                   ),
                   Text(
                     slide.title,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 19,
-                      fontWeight: FontWeight.w900,
-                      height: 1.15,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1026,8 +1026,8 @@ class _PromoBannerCard extends StatelessWidget {
                           slide.cta,
                           style: TextStyle(
                             color: AppColors.primary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(width: 4),
@@ -1184,24 +1184,27 @@ class _SearchFoodTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
+      splashColor: AppColors.primary.withValues(alpha: 0.08),
+      highlightColor: AppColors.primary.withValues(alpha: 0.04),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border, width: 0.5),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.06),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 12,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Row(
           children: [
-            FoodImagePlaceholder(food: food, size: 64, radius: 16),
-            const SizedBox(width: 12),
+            FoodImagePlaceholder(food: food, size: 60, radius: 14),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1210,7 +1213,7 @@ class _SearchFoodTile extends StatelessWidget {
                     food.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.text),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -1220,44 +1223,23 @@ class _SearchFoodTile extends StatelessWidget {
                     style: const TextStyle(
                       color: AppColors.subText,
                       fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.primary.withValues(alpha: 0.14),
-                          AppColors.primary.withValues(alpha: 0.05),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      CurrencyFormatter.vnd(food.price),
-                      style: const TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12,
-                      ),
+                  Text(
+                    CurrencyFormatter.vnd(food.price),
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 10),
-            Container(
-              width: 30,
-              height: 30,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF5F5F5),
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: const Icon(Icons.chevron_right, size: 18, color: AppColors.subText),
-            ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right, size: 18, color: AppColors.subText),
           ],
         ),
       ),
@@ -1691,47 +1673,51 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
               Container(
-                width: 4,
-                height: 16,
+                width: 3,
+                height: 18,
                 decoration: BoxDecoration(
                   color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF1A1A1A),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.text,
+                  letterSpacing: -0.3,
                 ),
               ),
             ],
           ),
           InkWell(
             onTap: onAction,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8),
+            splashColor: AppColors.primary.withValues(alpha: 0.08),
+            highlightColor: AppColors.primary.withValues(alpha: 0.04),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     action,
                     style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                       color: AppColors.primary,
                     ),
                   ),
+                  const SizedBox(width: 2),
                   Icon(Icons.chevron_right, size: 16, color: AppColors.primary),
                 ],
               ),
@@ -1776,43 +1762,45 @@ class _CategoryRow extends StatelessWidget {
         .toList();
 
     return SizedBox(
-      height: 82,
+      height: 80,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: visibleCategories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
         itemBuilder: (_, i) {
           final category = visibleCategories[i];
           final icon = _iconFor(category.name);
           final gradientColors = _accentGradients[i % _accentGradients.length];
 
           return InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
+            splashColor: gradientColors.first.withValues(alpha: 0.15),
+            highlightColor: gradientColors.first.withValues(alpha: 0.08),
             onTap: () => onCategoryTap(category),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 54,
-                  height: 54,
+                  width: 52,
+                  height: 52,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: gradientColors,
                     ),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: gradientColors.first.withValues(alpha: 0.35),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
+                        color: gradientColors.first.withValues(alpha: 0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
                   alignment: Alignment.center,
-                  child: Icon(icon, size: 24, color: Colors.white),
+                  child: Icon(icon, size: 22, color: Colors.white),
                 ),
                 const SizedBox(height: 6),
                 SizedBox(

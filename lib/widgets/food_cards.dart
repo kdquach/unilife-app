@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../core/utils/currency_formatter.dart';
 import '../models/food.dart';
+import '../services/api_client.dart';
 import 'app_button.dart';
 import 'app_card.dart';
 import 'food_image_placeholder.dart';
@@ -81,58 +82,128 @@ class RegularFoodCard extends StatelessWidget {
 
   const RegularFoodCard({super.key, required this.food, this.onTap, this.onAdd});
 
+  String? _resolveImageUrl(Food food) {
+    final imageUrl = food.imageUrl;
+    if (imageUrl == null || imageUrl.isEmpty) return null;
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return imageUrl;
+    }
+    final apiRoot = Uri.parse(ApiClient.baseUrl);
+    final origin = '${apiRoot.scheme}://${apiRoot.authority}';
+    final normalizedPath = imageUrl.startsWith('/') ? imageUrl : '/$imageUrl';
+    return '$origin$normalizedPath';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final imageUrl = _resolveImageUrl(food);
+    final isSoldOut = !food.canAddToCart;
+
     return AppCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            height: 86,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: AppColors.muted,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              food.category.toUpperCase(),
-              style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900),
+          // Image
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+            child: Stack(
+              children: [
+                SizedBox(
+                  height: 100,
+                  width: double.infinity,
+                  child: imageUrl != null
+                      ? Image.network(imageUrl, fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _placeholder())
+                      : _placeholder(),
+                ),
+                if (isSoldOut)
+                  Container(
+                    height: 100,
+                    color: Colors.black.withValues(alpha: 0.35),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'OUT',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          Text(food.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  CurrencyFormatter.vnd(food.price),
-                  style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900),
+          // Info
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  food.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.text,
+                    height: 1.3,
+                  ),
                 ),
-              ),
-              Text(
-                food.statusLabel,
-                style: TextStyle(
-                  color: food.canAddToCart ? AppColors.success : AppColors.error,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      CurrencyFormatter.vnd(food.price),
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: onAdd,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: isSoldOut
+                              ? AppColors.border
+                              : AppColors.primary,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          isSoldOut ? Icons.remove : Icons.add_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 42,
-            child: AppButton(
-              label: food.canAddToCart ? 'Add' : 'Out',
-              secondary: true,
-              onPressed: food.canAddToCart ? onAdd : null,
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _placeholder() {
+    return Container(
+      height: 90,
+      width: double.infinity,
+      color: AppColors.primarySoft,
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.restaurant_menu_rounded,
+        color: AppColors.primary,
+        size: 36,
       ),
     );
   }
