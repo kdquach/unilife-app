@@ -34,7 +34,7 @@ class ProfileMenuOption extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
+                color: iconColor.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -52,7 +52,7 @@ class ProfileMenuOption extends StatelessWidget {
                     title,
                     style: TextStyle(
                       fontSize: 15,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                       color: danger ? AppColors.error : AppColors.text,
                     ),
                   ),
@@ -62,6 +62,7 @@ class ProfileMenuOption extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.subText,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                 ],
