@@ -115,7 +115,7 @@ class Food {
         json['remainingServings'] ??
         json['remainingQuantity'] ??
         json['remaining'];
-    final remainingCount = (remainingRaw as num? ?? 0).toInt();
+    final remainingCount = (remainingRaw as num?)?.toInt();
     final isActive = json['isActive'] as bool? ?? true;
 
     final foodMap = (json['foodId'] ?? json['food'] ?? json['dish'] ?? json['dishId']) as Map<String, dynamic>? ?? {};
@@ -131,7 +131,7 @@ class Food {
         : (categoryRaw is String ? categoryRaw : '');
 
     FoodStatus status = FoodStatus.available;
-    if (!isActive || remainingCount <= 0) {
+    if (!isActive || (remainingCount != null && remainingCount <= 0)) {
       status = FoodStatus.soldOut;
     }
 
@@ -159,7 +159,7 @@ class Food {
     if (isMenuFood) {
       return menuScheduleItemId != null &&
           menuScheduleItemId!.isNotEmpty &&
-          (remainingServings ?? 0) > 0;
+          (remainingServings == null || remainingServings! > 0);
     }
     return true;
   }
@@ -182,8 +182,8 @@ class Food {
     switch (status) {
       case FoodStatus.available:
         if (!isMenuFood) return 'In stock';
-        final remaining = remainingServings ?? 0;
-        return remaining > 0 ? 'Remaining: $remaining' : 'Sold out';
+        if (remainingServings == null) return 'Available';
+        return remainingServings! > 0 ? 'Remaining: $remainingServings' : 'Sold out';
       case FoodStatus.soldOut:
         return 'Sold out';
       case FoodStatus.comingSoon:

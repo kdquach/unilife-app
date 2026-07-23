@@ -381,7 +381,7 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
       return;
     }
 
-    if (widget.item.maxServing != null && newQuantity > widget.item.maxServing!) {
+    if (widget.item.maxServing != null && widget.item.maxServing! > 0 && newQuantity > widget.item.maxServing!) {
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('You can only buy up to ${widget.item.maxServing} portions'),

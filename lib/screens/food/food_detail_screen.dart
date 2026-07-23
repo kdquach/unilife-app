@@ -89,9 +89,9 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
   }
 
   Food _mergeMenuContext(Food detail, Food menuContext) {
-    final remainingServings = menuContext.remainingServings ?? 0;
+    final remainingServings = menuContext.remainingServings;
     final status =
-        remainingServings <= 0 ? FoodStatus.soldOut : menuContext.status;
+        (remainingServings != null && remainingServings <= 0) ? FoodStatus.soldOut : menuContext.status;
 
     return detail.copyWith(
       kind: menuContext.kind,
@@ -318,7 +318,9 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
                               ? Icons.inventory_2_outlined
                               : Icons.do_not_disturb_on_outlined,
                           label: food.isMenuFood
-                              ? '${food.remainingServings ?? 0} servings left'
+                              ? (food.remainingServings == null
+                                  ? 'Unlimited servings left'
+                                  : '${food.remainingServings} servings left')
                               : food.statusLabel,
                           backgroundColor: food.canAddToCart
                               ? const Color(0xFFE8F5E9)
