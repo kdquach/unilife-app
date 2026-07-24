@@ -57,7 +57,7 @@ class SplashScreen extends StatelessWidget {
                   // Feature rows
                   _FeatureList(),
                   const Spacer(),
-                  // ── CTA button (dùng AppButton của dự án) ───────────────────
+                  // ── CTA button (using project AppButton) ───────────────────
                   AppButton(
                     label: 'Get Started',
                     secondary: true,
@@ -98,7 +98,7 @@ class SplashScreen extends StatelessWidget {
 // ─── Feature list ──────────────────────────────────────────────────────────────
 class _FeatureList extends StatelessWidget {
   static const _features = [
-    (Icons.receipt_long_outlined, 'Order in advance.', 'Mới'),
+    (Icons.receipt_long_outlined, 'Order in advance.', 'New'),
     (Icons.access_time_outlined, 'Skip the queue', null),
     (Icons.location_on_outlined, 'Track actual orders', null),
   ];

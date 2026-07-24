@@ -103,7 +103,7 @@ class FoodService {
     return _parseFoodItems(response);
   }
 
-  /// Lấy danh sách món ăn bán hàng ngày từ API (isMenuItem: false)
+  /// Get list of daily food from API (isMenuItem: false)
   Future<Food> getFoodById(String id, {String? token}) async {
     final response = await _apiClient.getJson('/foods/$id', token: token);
     final data = response['data'];
@@ -121,7 +121,7 @@ class FoodService {
     return _parseFoodItems(response);
   }
 
-  /// Lấy danh sách món ăn bán theo menu hôm nay từ API
+  /// Get list of today's menu food from API
   Future<List<Food>> getTodayMenuFoods({String? token}) async {
     try {
       final response = await _apiClient.getJson(
@@ -144,7 +144,7 @@ class FoodService {
     }
   }
 
-  /// Lấy danh sách thực đơn theo tuần (khoảng ngày) từ API
+  /// Get weekly menu schedules from API
   Future<List<MenuSchedule>> getWeeklyMenuSchedules({
     required String dateFrom,
     required String dateTo,
@@ -169,7 +169,7 @@ class FoodService {
     }
   }
 
-  /// Lấy danh sách danh mục món ăn từ API
+  /// Get list of food categories from API
   Future<List<FoodCategory>> getFoodCategories({String? token}) async {
     try {
       final response = await _apiClient.getJson(

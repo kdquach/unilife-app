@@ -379,8 +379,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const _PromoCarousel(),
               _SectionHeader(
                 key: _categoriesKey,
-                title: 'Danh mục',
-                action: 'Xem tất cả',
+                title: 'Categories',
+                action: 'See all',
                 onAction: _scrollToCategories,
               ),
               _CategoryRow(
@@ -388,8 +388,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onCategoryTap: _openMenuCategory,
               ),
               _SectionHeader(
-                title: 'Thực đơn hôm nay',
-                action: 'Xem thêm',
+                title: 'Today\'s Menu',
+                action: 'See more',
                 onAction: () =>
                     Navigator.pushNamed(context, TodayMenuScreen.routeName),
               ),
@@ -413,8 +413,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ],
               _SectionHeader(
-                title: 'Luôn có sẵn',
-                action: 'Xem thêm',
+                title: 'Always Available',
+                action: 'See more',
                 onAction: () => Navigator.pushNamed(
                   context,
                   AlwaysAvailableScreen.routeName,
@@ -525,7 +525,7 @@ class _TopBar extends StatelessWidget {
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
-                  'Chào buổi sáng, Nguyen Van A',
+                  'Good morning, Nguyen Van A',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -699,25 +699,25 @@ class _QuickActionsRow extends StatelessWidget {
     final items = [
       (
         icon: Icons.today_rounded,
-        label: 'Thực đơn\nhôm nay',
+        label: 'Today\'s\nMenu',
         gradient: _accentGradients[0],
         onTap: onTodayMenu,
       ),
       (
         icon: Icons.storefront_rounded,
-        label: 'Luôn có\nsẵn',
+        label: 'Always\nAvailable',
         gradient: _accentGradients[1],
         onTap: onAlwaysAvailable,
       ),
       (
         icon: Icons.grid_view_rounded,
-        label: 'Danh\nmục',
+        label: 'Categories',
         gradient: _accentGradients[2],
         onTap: onCategories,
       ),
       (
         icon: Icons.flash_on_rounded,
-        label: 'Tìm nhanh\nmón',
+        label: 'Quick\nSearch',
         gradient: _accentGradients[3],
         onTap: onQuickSearch,
       ),
@@ -807,24 +807,24 @@ class _PromoCarouselState extends State<_PromoCarousel> {
   late final List<_PromoSlide> _slides = [
     _PromoSlide(
       eyebrow: "TODAY'S DEAL",
-      title: 'Chỉ có tại\nCanteen',
-      cta: 'Đặt ngay!',
+      title: 'Only at\nCanteen',
+      cta: 'Order now!',
       icon: Icons.fastfood_rounded,
       imagePath: AppAssets.banhmi,
       onTap: () => Navigator.pushNamed(context, TodayMenuScreen.routeName),
     ),
     _PromoSlide(
-      eyebrow: 'THỰC ĐƠN HÔM NAY',
-      title: 'Món mới\nmỗi ngày',
-      cta: 'Xem thực đơn',
+      eyebrow: 'TODAY\'S MENU',
+      title: 'New dishes\nevery day',
+      cta: 'View menu',
       icon: Icons.restaurant_menu_rounded,
       imagePath: AppAssets.hutieu,
       onTap: () => Navigator.pushNamed(context, TodayMenuScreen.routeName),
     ),
     _PromoSlide(
-      eyebrow: 'LUÔN CÓ SẴN',
-      title: 'Đặt là\ncó ngay',
-      cta: 'Khám phá',
+      eyebrow: 'ALWAYS AVAILABLE',
+      title: 'Ready to\nserve',
+      cta: 'Explore',
       icon: Icons.bolt_rounded,
       imagePath: AppAssets.goicuon,
       onTap: () => Navigator.pushNamed(context, AlwaysAvailableScreen.routeName),
