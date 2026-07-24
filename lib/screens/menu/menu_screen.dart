@@ -13,6 +13,21 @@ import 'always_available_screen.dart';
 import 'today_menu_screen.dart';
 import 'weekly_menu_screen.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Semantic palette — must stay in sync with the badges used in the cart:
+//   • Orange  → primary actions (Add button, prices, "Today" tab)
+//   • Blue    → "Today's Menu" (Menu Food) label & badges
+//   • Green   → "Always Available" label & badges
+// ─────────────────────────────────────────────────────────────────────────────
+class _MenuPalette {
+  static const orange = Color(0xFFFB7A2E);
+  static const orangeDark = Color(0xFFEA580C);
+  static const blue = Color(0xFF2F6FE4);
+  static const blueSoft = Color(0xFFE8F0FE);
+  static const green = Color(0xFF1FA463);
+  static const greenSoft = Color(0xFFE4F6ED);
+}
+
 class MenuScreen extends ConsumerStatefulWidget {
   final String? preselectedCategoryId;
   final String? preselectedCategoryName;
@@ -135,7 +150,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: _loadData,
-        color: AppColors.primary,
+        color: _MenuPalette.orange,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
@@ -149,26 +164,27 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
             if (_hasCategoryFilter)
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
                   child: Row(
                     children: [
                       InputChip(
                         label: Text(
                           _selectedCategoryName!,
                           style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
+                            color: _MenuPalette.orangeDark,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         backgroundColor: AppColors.primarySoft,
                         selectedColor: AppColors.primarySoft,
                         selected: true,
                         onDeleted: _clearCategoryFilter,
-                        deleteIconColor: AppColors.primary,
+                        deleteIconColor: _MenuPalette.orangeDark,
                         deleteIcon: const Icon(Icons.close, size: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          side: const BorderSide(color: AppColors.primary, width: 1.2),
+                          borderRadius: BorderRadius.circular(18),
+                          side: const BorderSide(
+                              color: _MenuPalette.orange, width: 1),
                         ),
                       ),
                     ],
@@ -176,13 +192,15 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                 ),
               ),
 
-            // ─── Scheduled (Today Menu) ──────────────────────────────────────
+            // ─── Scheduled (Today Menu) — BLUE section ───────────────────────
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                 child: _SectionHeader(
-                  title: "Today's Menu",
-                  subtitle: '${_scheduledFoods.length} items scheduled',
+                  title: "Thực đơn hôm nay",
+                  subtitle: '${_scheduledFoods.length} món trong hôm nay',
+                  accentColor: _MenuPalette.blue,
+                  dotColor: _MenuPalette.blue,
                   onSeeAll: () => Navigator.pushNamed(
                     context,
                     TodayMenuScreen.routeName,
@@ -193,13 +211,15 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
             ),
             SliverToBoxAdapter(child: _buildScheduledList()),
 
-            // ─── Always Available ────────────────────────────────────────────
+            // ─── Always Available — GREEN section ────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
                 child: _SectionHeader(
-                  title: 'Always Available',
-                  subtitle: '${_alwaysAvailableFoods.length} daily items',
+                  title: 'Luôn có sẵn',
+                  subtitle: '${_alwaysAvailableFoods.length} món mỗi ngày',
+                  accentColor: _MenuPalette.green,
+                  dotColor: _MenuPalette.green,
                   onSeeAll: () => Navigator.pushNamed(
                     context,
                     AlwaysAvailableScreen.routeName,
@@ -225,23 +245,23 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
   // ────────────────────────────────────────────────────────────────────────────
   Widget _buildHeader() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      margin: const EdgeInsets.fromLTRB(20, 20, 20, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             'Menu 🍽️',
             style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
+              fontSize: 26,
+              fontWeight: FontWeight.w600,
               color: AppColors.text,
-              letterSpacing: -0.5,
+              letterSpacing: -0.3,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           const Text(
-            'Explore today\'s meals and daily selections',
-            style: TextStyle(color: AppColors.subText, fontSize: 14),
+            'Khám phá thực đơn hôm nay và các món luôn có sẵn',
+            style: TextStyle(color: AppColors.subText, fontSize: 14, fontWeight: FontWeight.w400),
           ),
         ],
       ),
@@ -250,20 +270,23 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
 
   // ────────────────────────────────────────────────────────────────────────────
   // Nav tiles
+  // Today   → orange (primary action)
+  // Weekly  → neutral dark (secondary, no clash with the 3-color system)
+  // Always Available → green (matches its section + cart badge)
   // ────────────────────────────────────────────────────────────────────────────
   Widget _buildNavTiles() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       child: Row(
         children: [
           Expanded(
             flex: 5,
             child: _NavTile(
-              label: "Today",
-              subtitle: "Today's meals",
+              label: "Hôm nay",
+              subtitle: "Món ăn hôm nay",
               icon: Icons.wb_sunny_rounded,
               gradient: const LinearGradient(
-                colors: [Color(0xFFFF4A2B), Color(0xFFFF7A57)],
+                colors: [_MenuPalette.orangeDark, _MenuPalette.orange],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -280,11 +303,11 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
             child: Column(
               children: [
                 _NavTile(
-                  label: 'Weekly',
-                  subtitle: 'Weekly plan',
+                  label: 'Theo tuần',
+                  subtitle: 'Thực đơn tuần',
                   icon: Icons.calendar_month_rounded,
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                    colors: [Color(0xFF334155), Color(0xFF64748B)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -297,11 +320,11 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                 ),
                 const SizedBox(height: 12),
                 _NavTile(
-                  label: 'Always Available',
-                  subtitle: 'Anytime items',
+                  label: 'Luôn có sẵn',
+                  subtitle: 'Món ăn mọi lúc',
                   icon: Icons.store_rounded,
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF059669), Color(0xFF10B981)],
+                    colors: [Color(0xFF17835A), _MenuPalette.green],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -324,7 +347,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // Today Scheduled List – horizontal scroll cards
+  // Today Scheduled List – horizontal scroll cards (blue badge = Menu Food)
   // ────────────────────────────────────────────────────────────────────────────
   Widget _buildScheduledList() {
     if (_isLoadingScheduled) {
@@ -347,8 +370,8 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
         padding: EdgeInsets.symmetric(horizontal: 20),
         child: _EmptyState(
           icon: Icons.no_meals_rounded,
-          title: 'No meals today',
-          subtitle: 'Check back later for today\'s scheduled menu.',
+          title: 'Chưa có món nào hôm nay',
+          subtitle: 'Quay lại sau để xem thực đơn hôm nay.',
         ),
       );
     }
@@ -373,7 +396,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // Always Available Grid – 2 column
+  // Always Available Grid – 2 column (green badge = Always Available)
   // ────────────────────────────────────────────────────────────────────────────
   Widget _buildAlwaysAvailableGrid() {
     if (_isLoadingAlways) {
@@ -401,8 +424,8 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
         padding: EdgeInsets.symmetric(horizontal: 20),
         child: _EmptyState(
           icon: Icons.fastfood_rounded,
-          title: 'No items available',
-          subtitle: 'Daily items will appear here.',
+          title: 'Chưa có món nào',
+          subtitle: 'Các món luôn có sẵn sẽ hiển thị tại đây.',
         ),
       );
     }
@@ -457,15 +480,15 @@ class _NavTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: compact ? 80 : 172,
+        height: compact ? 76 : 168,
         decoration: BoxDecoration(
           gradient: gradient,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: (gradient as LinearGradient).colors.first.withValues(alpha: 0.35),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+              color: (gradient as LinearGradient).colors.first.withValues(alpha: 0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -474,14 +497,14 @@ class _NavTile extends StatelessWidget {
             ? Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Icon(icon, color: Colors.white, size: 22),
+                  Icon(icon, color: Colors.white, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       label,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         fontSize: 13,
                       ),
                     ),
@@ -495,13 +518,13 @@ class _NavTile extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 42,
+                    height: 42,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(14),
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(icon, color: Colors.white, size: 24),
+                    child: Icon(icon, color: Colors.white, size: 22),
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -510,16 +533,17 @@ class _NavTile extends StatelessWidget {
                         label,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 17,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
+                          color: Colors.white.withValues(alpha: 0.85),
                           fontSize: 12,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],
@@ -532,16 +556,21 @@ class _NavTile extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Section Header
+// Section Header — carries a small colored dot + accent-colored title so the
+// section instantly reads as "blue = Today's Menu" / "green = Always Available"
 // ─────────────────────────────────────────────────────────────────────────────
 class _SectionHeader extends StatelessWidget {
   final String title;
   final String subtitle;
+  final Color accentColor;
+  final Color dotColor;
   final VoidCallback? onSeeAll;
 
   const _SectionHeader({
     required this.title,
     required this.subtitle,
+    required this.accentColor,
+    required this.dotColor,
     this.onSeeAll,
   });
 
@@ -554,19 +583,38 @@ class _SectionHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.text,
-                ),
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: dotColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: accentColor,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.subText,
+              const SizedBox(height: 2),
+              Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.subText,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
               ),
             ],
@@ -575,11 +623,11 @@ class _SectionHeader extends StatelessWidget {
         if (onSeeAll != null)
           GestureDetector(
             onTap: onSeeAll,
-            child: const Text(
-              'See all →',
+            child: Text(
+              'Xem tất cả →',
               style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w700,
+                color: _MenuPalette.orangeDark,
+                fontWeight: FontWeight.w600,
                 fontSize: 13,
               ),
             ),
@@ -590,7 +638,7 @@ class _SectionHeader extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Scheduled Food Card – horizontal
+// Scheduled Food Card – horizontal (Menu Food → blue badge, matches cart)
 // ─────────────────────────────────────────────────────────────────────────────
 class _ScheduledFoodCard extends StatelessWidget {
   final Food food;
@@ -622,12 +670,13 @@ class _ScheduledFoodCard extends StatelessWidget {
         width: 176,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.border, width: 0.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -636,7 +685,7 @@ class _ScheduledFoodCard extends StatelessWidget {
           children: [
             // Image / placeholder
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
               child: Stack(
                 children: [
                   SizedBox(
@@ -652,7 +701,7 @@ class _ScheduledFoodCard extends StatelessWidget {
                     Container(
                       height: 110,
                       width: 176,
-                      color: Colors.black.withValues(alpha: 0.38),
+                      color: Colors.black.withValues(alpha: 0.35),
                       alignment: Alignment.center,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -662,17 +711,17 @@ class _ScheduledFoodCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Text(
-                          'SOLD OUT',
+                          'HẾT HÀNG',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 11,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
                           ),
                         ),
                       ),
                     ),
-                  // Meal type badge
+                  // Meal type badge — blue, matches "Menu Food" badge in cart
                   Positioned(
                     top: 8,
                     left: 8,
@@ -680,15 +729,15 @@ class _ScheduledFoodCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(8),
+                        color: _MenuPalette.blue,
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         food.mealType ?? 'Menu',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -702,7 +751,6 @@ class _ScheduledFoodCard extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       food.name,
@@ -710,20 +758,21 @@ class _ScheduledFoodCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.text,
                         height: 1.3,
                       ),
                     ),
+                    const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           CurrencyFormatter.vnd(food.price),
                           style: const TextStyle(
-                            color: AppColors.primary,
+                            color: _MenuPalette.orangeDark,
                             fontSize: 12,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         GestureDetector(
@@ -735,7 +784,7 @@ class _ScheduledFoodCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: isSoldOut
                                   ? AppColors.border
-                                  : AppColors.primary,
+                                  : _MenuPalette.orange,
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Icon(
@@ -761,11 +810,11 @@ class _ScheduledFoodCard extends StatelessWidget {
     return Container(
       height: 110,
       width: 176,
-      color: AppColors.primarySoft,
+      color: _MenuPalette.blueSoft,
       alignment: Alignment.center,
       child: const Icon(
         Icons.restaurant_menu_rounded,
-        color: AppColors.primary,
+        color: _MenuPalette.blue,
         size: 36,
       ),
     );
@@ -773,7 +822,7 @@ class _ScheduledFoodCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Always Available Card – grid
+// Always Available Card – grid (Always Available → green badge, matches cart)
 // ─────────────────────────────────────────────────────────────────────────────
 class _AlwaysAvailableCard extends StatelessWidget {
   final Food food;
@@ -804,12 +853,13 @@ class _AlwaysAvailableCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.border, width: 0.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 10,
-              offset: const Offset(0, 4),
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -818,7 +868,7 @@ class _AlwaysAvailableCard extends StatelessWidget {
           children: [
             // Image
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
               child: Stack(
                 children: [
                   SizedBox(
@@ -835,10 +885,10 @@ class _AlwaysAvailableCard extends StatelessWidget {
                       color: Colors.black.withValues(alpha: 0.35),
                       alignment: Alignment.center,
                       child: const Text(
-                        'OUT',
+                        'HẾT',
                         style: TextStyle(
                           color: Colors.white,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w600,
                           fontSize: 13,
                           letterSpacing: 1,
                         ),
@@ -852,15 +902,15 @@ class _AlwaysAvailableCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 7, vertical: 3),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.48),
-                          borderRadius: BorderRadius.circular(8),
+                          color: _MenuPalette.green,
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           food.category,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 9,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -874,7 +924,6 @@ class _AlwaysAvailableCard extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       food.name,
@@ -882,11 +931,12 @@ class _AlwaysAvailableCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.text,
                         height: 1.3,
                       ),
                     ),
+                    const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -894,9 +944,9 @@ class _AlwaysAvailableCard extends StatelessWidget {
                           child: Text(
                             CurrencyFormatter.vnd(food.price),
                             style: const TextStyle(
-                              color: AppColors.primary,
+                              color: _MenuPalette.orangeDark,
                               fontSize: 12,
-                              fontWeight: FontWeight.w900,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
@@ -908,7 +958,7 @@ class _AlwaysAvailableCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: isSoldOut
                                   ? AppColors.border
-                                  : AppColors.primary,
+                                  : _MenuPalette.orange,
                               borderRadius: BorderRadius.circular(9),
                             ),
                             child: Icon(
@@ -933,11 +983,11 @@ class _AlwaysAvailableCard extends StatelessWidget {
   Widget _placeholder() {
     return Container(
       height: 100,
-      color: AppColors.muted,
+      color: _MenuPalette.greenSoft,
       alignment: Alignment.center,
       child: const Icon(
         Icons.fastfood_rounded,
-        color: AppColors.subText,
+        color: _MenuPalette.green,
         size: 32,
       ),
     );
