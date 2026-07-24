@@ -118,5 +118,5 @@ class ApiException implements Exception {
   ApiException({required this.statusCode, required this.message});
 
   @override
-  String toString() => 'ApiException($statusCode): $message';
+  String toString() => message;
 }
