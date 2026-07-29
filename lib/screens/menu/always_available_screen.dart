@@ -9,7 +9,6 @@ import '../../models/food_category.dart';
 import '../../services/api_client.dart';
 import '../../states/cart_provider.dart';
 import '../../services/food_service.dart';
-import '../../widgets/food_cards.dart';
 import '../food/food_detail_screen.dart';
 
 class AlwaysAvailableScreen extends ConsumerStatefulWidget {
@@ -157,7 +156,6 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
       _sortOrder != 'desc';
 
   int? get _minPriceParam => _hasPriceFilter ? _selectedMinPrice : null;
-
   int? get _maxPriceParam => _hasPriceFilter ? _selectedMaxPrice : null;
 
   void _open(Food food) =>
@@ -165,15 +163,22 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
 
   Future<void> _add(Food food) async {
     try {
+      HapticFeedback.mediumImpact();
       await ref.read(cartProvider.notifier).addItem(food);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('${food.name} added to cart')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('${food.name} added to cart'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.success,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(e.toString().replaceAll('Exception: ', '')),
-        backgroundColor: Colors.red,
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ));
     }
   }
@@ -195,16 +200,12 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
     await _loadFilteredFoods();
   }
 
-  Future<void> _openStableFilterSheet() async {
-    final selection =
-        await showModalBottomSheet<_AlwaysAvailableFilterSelection>(
+  Future<void> _openFilterSheet() async {
+    final selection = await showModalBottomSheet<_FilterSelection>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => _AlwaysAvailableFilterSheet(
+      backgroundColor: Colors.transparent,
+      builder: (_) => _FilterSheet(
         categories: _categories,
         selectedCategoryId: _selectedCategoryId,
         availableMinPrice: _availableMinPrice,
@@ -213,6 +214,7 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
         selectedMaxPrice: _selectedMaxPrice,
         sortBy: _sortBy,
         sortOrder: _sortOrder,
+        hasPriceRange: _hasPriceRange,
       ),
     );
 
@@ -227,499 +229,498 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
     await _loadFilteredFoods();
   }
 
-  // ignore: unused_element
-  Future<void> _openFilterSheet() async {
-    String? tempCategoryId = _selectedCategoryId;
-    int tempMinPrice = _selectedMinPrice;
-    int tempMaxPrice = _selectedMaxPrice;
-    String tempSortBy = _sortBy;
-    String tempSortOrder = _sortOrder;
-    String? tempPriceError;
-    final minPriceController = TextEditingController(
-      text: tempMinPrice.toString(),
-    );
-    final maxPriceController = TextEditingController(
-      text: tempMaxPrice.toString(),
-    );
-
-    try {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.white,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        builder: (context) {
-          return StatefulBuilder(
-            builder: (context, setSheetState) {
-              return SafeArea(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    24,
-                    18,
-                    24,
-                    MediaQuery.of(context).viewInsets.bottom + 24,
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Expanded(
-                              child: Text(
-                                'Filter foods',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () => Navigator.pop(context),
-                              icon: const Icon(Icons.close),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        const Text(
-                          'Category',
-                          style: TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _filterChoiceChip(
-                              label: 'All',
-                              selected: tempCategoryId == null,
-                              onSelected: () {
-                                setSheetState(() => tempCategoryId = null);
-                              },
-                            ),
-                            ..._categories.map(
-                              (category) => _filterChoiceChip(
-                                label: category.name,
-                                selected: tempCategoryId == category.id,
-                                onSelected: () {
-                                  setSheetState(
-                                    () => tempCategoryId = category.id,
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 22),
-                        const Text(
-                          'Price',
-                          style: TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                        const SizedBox(height: 8),
-                        _PriceErrorMessage(message: tempPriceError),
-                        if (_hasPriceRange) ...[
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: minPriceController,
-                                  keyboardType: TextInputType.number,
-                                  onChanged: (_) {
-                                    if (tempPriceError == null) return;
-                                    setSheetState(() => tempPriceError = null);
-                                  },
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  decoration: const InputDecoration(
-                                    labelText: 'Min price',
-                                    suffixText: 'VND',
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextField(
-                                  controller: maxPriceController,
-                                  keyboardType: TextInputType.number,
-                                  onChanged: (_) {
-                                    if (tempPriceError == null) return;
-                                    setSheetState(() => tempPriceError = null);
-                                  },
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  decoration: const InputDecoration(
-                                    labelText: 'Max price',
-                                    suffixText: 'VND',
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ] else
-                          const Text(
-                            'No price range available',
-                            style: TextStyle(color: AppColors.subText),
-                          ),
-                        const SizedBox(height: 18),
-                        const Text(
-                          'Sort by',
-                          style: TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                        const SizedBox(height: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppColors.border),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.sort, color: AppColors.subText),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: DropdownButton<String>(
-                                  value: '${tempSortBy}_$tempSortOrder',
-                                  isExpanded: true,
-                                  underline: const SizedBox.shrink(),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'createdAt_desc',
-                                      child: Text('Newest'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'price_asc',
-                                      child: Text('Price low to high'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'price_desc',
-                                      child: Text('Price high to low'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'name_asc',
-                                      child: Text('Name A-Z'),
-                                    ),
-                                  ],
-                                  onChanged: (value) {
-                                    if (value == null) return;
-                                    final parts = value.split('_');
-                                    setSheetState(() {
-                                      tempSortBy = parts.first;
-                                      tempSortOrder = parts.last;
-                                    });
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () {
-                                  setSheetState(() {
-                                    tempCategoryId = null;
-                                    tempMinPrice = _availableMinPrice;
-                                    tempMaxPrice = _availableMaxPrice;
-                                    minPriceController.text =
-                                        tempMinPrice.toString();
-                                    maxPriceController.text =
-                                        tempMaxPrice.toString();
-                                    tempSortBy = 'createdAt';
-                                    tempSortOrder = 'desc';
-                                    tempPriceError = null;
-                                  });
-                                },
-                                child: const Text('Clear'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  final minPriceText =
-                                      minPriceController.text.trim();
-                                  final maxPriceText =
-                                      maxPriceController.text.trim();
-                                  final minPrice = int.tryParse(minPriceText);
-                                  final maxPrice = int.tryParse(maxPriceText);
-
-                                  if (_hasPriceRange) {
-                                    if (minPriceText.isEmpty ||
-                                        maxPriceText.isEmpty) {
-                                      setSheetState(
-                                        () => tempPriceError =
-                                            'Please enter both min and max price.',
-                                      );
-                                      return;
-                                    }
-
-                                    if (minPrice == null || maxPrice == null) {
-                                      setSheetState(
-                                        () => tempPriceError =
-                                            'Price must be a valid number.',
-                                      );
-                                      return;
-                                    }
-
-                                    if (minPrice > maxPrice) {
-                                      setSheetState(
-                                        () => tempPriceError =
-                                            'Min price must be less than or equal to max price.',
-                                      );
-                                      return;
-                                    }
-
-                                    if (minPrice < _availableMinPrice ||
-                                        maxPrice > _availableMaxPrice) {
-                                      setSheetState(
-                                        () => tempPriceError =
-                                            'Price must be between ${CurrencyFormatter.vnd(_availableMinPrice)} and ${CurrencyFormatter.vnd(_availableMaxPrice)}.',
-                                      );
-                                      return;
-                                    }
-                                  }
-
-                                  Navigator.pop(context);
-                                  setState(() {
-                                    _selectedCategoryId = tempCategoryId;
-                                    _selectedMinPrice =
-                                        minPrice ?? _availableMinPrice;
-                                    _selectedMaxPrice =
-                                        maxPrice ?? _availableMaxPrice;
-                                    _sortBy = tempSortBy;
-                                    _sortOrder = tempSortOrder;
-                                  });
-                                  _loadFilteredFoods();
-                                },
-                                child: const Text('Apply'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      );
-    } finally {
-      minPriceController.dispose();
-      maxPriceController.dispose();
+  String get _sortLabel {
+    switch ('${_sortBy}_$_sortOrder') {
+      case 'price_asc':
+        return 'Price ↑';
+      case 'price_desc':
+        return 'Price ↓';
+      case 'name_asc':
+        return 'A → Z';
+      default:
+        return 'Newest';
     }
-  }
-
-  Widget _filterChoiceChip({
-    required String label,
-    required bool selected,
-    required VoidCallback onSelected,
-  }) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onSelected(),
-      backgroundColor: Colors.white,
-      selectedColor: AppColors.primary,
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : AppColors.text,
-        fontWeight: FontWeight.w800,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: selected ? AppColors.primary : AppColors.border,
-          width: 1,
-        ),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Always Available'),
-        actions: [
-          IconButton(
-            tooltip: 'Filter',
-            onPressed: _isLoading ? null : _openStableFilterSheet,
-            icon: Badge(
-              isLabelVisible: _hasActiveFilters,
-              child: const Icon(Icons.tune),
-            ),
-          ),
-        ],
-      ),
+      backgroundColor: AppColors.background,
       body: RefreshIndicator(
         onRefresh: _loadData,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-                ? _buildErrorView()
-                : _buildBody(),
-      ),
-    );
-  }
+        color: AppColors.primary,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // ── Header ───────────────────────────────────────────────────
+            SliverAppBar(
+              pinned: true,
+              backgroundColor: Colors.white,
+              elevation: 0,
+              scrolledUnderElevation: 1,
+              leading: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                    color: AppColors.text),
+              ),
+              title: const Text(
+                'Always Available',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.text,
+                ),
+              ),
+              centerTitle: false,
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: IconButton(
+                    tooltip: 'Filter & Sort',
+                    onPressed:
+                        (_isLoading || _isFiltering) ? null : _openFilterSheet,
+                    icon: Stack(
+                      children: [
+                        const Icon(Icons.tune_rounded, color: AppColors.text),
+                        if (_hasActiveFilters)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SliverToBoxAdapter(
+              child: Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Always Available',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.text,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Daily items available anytime',
+                      style: TextStyle(
+                        color: AppColors.subText,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
-  Widget _buildErrorView() {
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: Container(
-        height: MediaQuery.of(context).size.height - 150,
-        alignment: Alignment.center,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.wifi_off_rounded,
-              size: 56,
-              color: AppColors.subText,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Could not load daily foods',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _error!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.subText),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _loadData,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-            ),
+            // ── Category chips ──────────────────────────────────────────────
+            if (!_isLoading && _error == null && _categories.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    const Divider(height: 1, color: AppColors.border),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 0, 0),
+                      child: SizedBox(
+                        height: 38,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.only(right: 20),
+                          itemCount: _categories.length + 1,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (_, i) {
+                            final isAll = i == 0;
+                            final cat = isAll ? null : _categories[i - 1];
+                            final isSelected = isAll
+                                ? _selectedCategoryId == null
+                                : _selectedCategoryId == cat!.id;
+                            return GestureDetector(
+                              onTap: () =>
+                                  _selectCategory(isAll ? null : cat!.id),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 7),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? AppColors.primarySoft
+                                      : AppColors.muted,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: isSelected
+                                      ? Border.all(
+                                          color: AppColors.primary, width: 1.5)
+                                      : null,
+                                ),
+                                child: Text(
+                                  isAll ? 'All' : cat!.name,
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? AppColors.primary
+                                        : AppColors.subText,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // ── Status bar ──────────────────────────────────────────────────
+            if (!_isLoading && _error == null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${_foods.length} item${_foods.length == 1 ? '' : 's'} · $_selectedCategoryName · $_sortLabel',
+                          style: const TextStyle(
+                              color: AppColors.subText, fontSize: 12),
+                        ),
+                      ),
+                      if (_hasActiveFilters)
+                        GestureDetector(
+                          onTap: _resetFilters,
+                          child: const Text(
+                            'Reset',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // ── Filtering indicator ─────────────────────────────────────────
+            if (_isFiltering)
+              const SliverToBoxAdapter(
+                child: LinearProgressIndicator(
+                  minHeight: 2,
+                  color: AppColors.primary,
+                  backgroundColor: AppColors.primarySoft,
+                ),
+              ),
+
+            // ── Content ─────────────────────────────────────────────────────
+            if (_isLoading)
+              SliverFillRemaining(child: _ListSkeleton())
+            else if (_error != null)
+              SliverFillRemaining(
+                child: _ErrorView(message: _error!, onRetry: _loadData),
+              )
+            else if (_foods.isEmpty)
+              SliverFillRemaining(
+                child: _EmptyView(
+                  icon: Icons.no_food_rounded,
+                  title: 'No items found',
+                  subtitle: 'Try a different category or reset filters.',
+                  onReset: _hasActiveFilters ? _resetFilters : null,
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                sliver: SliverList.separated(
+                  itemCount: _foods.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (_, i) {
+                    final food = _foods[i];
+                    return _AlwaysAvailableCard(
+                      food: food,
+                      onTap: () => _open(food),
+                      onAdd: food.canAddToCart ? () => _add(food) : null,
+                    );
+                  },
+                ),
+              ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildBody() {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(24),
-      children: [
-        SizedBox(
-          height: 44,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
+// ─────────────────────────────────────────────────────────────────────────────
+// Always Available food card (grid)
+// ─────────────────────────────────────────────────────────────────────────────
+class _AlwaysAvailableCard extends StatelessWidget {
+  final Food food;
+  final VoidCallback? onTap;
+  final VoidCallback? onAdd;
+
+  const _AlwaysAvailableCard({required this.food, this.onTap, this.onAdd});
+
+  String? _resolveImageUrl(Food food) {
+    final u = food.imageUrl;
+    if (u == null || u.isEmpty) return null;
+    if (u.startsWith('http')) return u;
+    final r = Uri.parse(ApiClient.baseUrl);
+    return '${r.scheme}://${r.authority}${u.startsWith('/') ? u : '/$u'}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = _resolveImageUrl(food);
+    final isSoldOut = !food.canAddToCart;
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 124),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border, width: 0.6),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.035),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _filterChoiceChip(
-                  label: 'All',
-                  selected: _selectedCategoryId == null,
-                  onSelected: () => _selectCategory(null),
+              ClipRRect(
+                borderRadius:
+                    const BorderRadius.horizontal(left: Radius.circular(18)),
+                child: Stack(
+                  children: [
+                    SizedBox(
+                      width: 112,
+                      height: 124,
+                      child: imageUrl != null
+                          ? Image.network(
+                              imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => _placeholder(),
+                            )
+                          : _placeholder(),
+                    ),
+                    if (isSoldOut)
+                      Container(
+                        width: 112,
+                        height: 124,
+                        color: Colors.black.withValues(alpha: 0.38),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'SOLD OUT',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              ..._categories.map(
-                (category) => Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _filterChoiceChip(
-                    label: category.name,
-                    selected: _selectedCategoryId == category.id,
-                    onSelected: () => _selectCategory(category.id),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          if (food.category.isNotEmpty)
+                            Flexible(
+                              child: _MiniTag(
+                                label: food.category,
+                                color: AppColors.primary,
+                                bgColor: AppColors.primarySoft,
+                              ),
+                            ),
+                          const Spacer(),
+                          const Icon(
+                            Icons.star_rounded,
+                            size: 14,
+                            color: Color(0xFFF59E0B),
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            food.rating.toStringAsFixed(1),
+                            style: const TextStyle(
+                              color: AppColors.text,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        food.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.text,
+                          height: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        food.statusLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color:
+                              isSoldOut ? AppColors.error : AppColors.success,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              CurrencyFormatter.vnd(food.price),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          SizedBox(
+                            width: 76,
+                            height: 36,
+                            child: ElevatedButton(
+                              onPressed: onAdd,
+                              style: ElevatedButton.styleFrom(
+                                fixedSize: const Size(76, 36),
+                                minimumSize: const Size(76, 36),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                backgroundColor: isSoldOut
+                                    ? AppColors.muted
+                                    : AppColors.primary,
+                                foregroundColor: isSoldOut
+                                    ? AppColors.subText
+                                    : Colors.white,
+                                elevation: 0,
+                                padding: EdgeInsets.zero,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                'Add',
+                                style: TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                '${_foods.length} item${_foods.length == 1 ? '' : 's'} in $_selectedCategoryName',
-                style: const TextStyle(color: AppColors.subText),
-              ),
-            ),
-          ],
-        ),
-        if (_hasActiveFilters) ...[
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: _resetFilters,
-              icon: const Icon(Icons.close, size: 18),
-              label: const Text('Clear filters'),
-            ),
-          ),
-        ],
-        const SizedBox(height: 12),
-        if (_isFiltering)
-          const LinearProgressIndicator(minHeight: 2)
-        else
-          const SizedBox(height: 2),
-        const SizedBox(height: 18),
-        if (_foods.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 48),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.no_food_outlined,
-                  size: 56,
-                  color: AppColors.subText,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No items found in $_selectedCategoryName',
-                  style: const TextStyle(color: AppColors.subText),
-                ),
-              ],
-            ),
-          )
-        else
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _foods.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              childAspectRatio: 0.72,
-            ),
-            itemBuilder: (_, index) {
-              final food = _foods[index];
-              return RegularFoodCard(
-                food: food,
-                onTap: () => _open(food),
-                onAdd: food.canAddToCart ? () => _add(food) : null,
-              );
-            },
-          ),
-      ],
+      ),
+    );
+  }
+
+  Widget _placeholder() {
+    return Container(
+      width: 112,
+      height: 124,
+      color: AppColors.muted,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.fastfood_rounded,
+        color: AppColors.subText.withValues(alpha: 0.5),
+        size: 36,
+      ),
     );
   }
 }
 
-class _AlwaysAvailableFilterSelection {
+// ─────────────────────────────────────────────────────────────────────────────
+// Filter selection data class
+// ─────────────────────────────────────────────────────────────────────────────
+class _MiniTag extends StatelessWidget {
+  final String label;
+  final Color color;
+  final Color bgColor;
+
+  const _MiniTag({
+    required this.label,
+    required this.color,
+    required this.bgColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterSelection {
   final String? categoryId;
   final int minPrice;
   final int maxPrice;
   final String sortBy;
   final String sortOrder;
 
-  const _AlwaysAvailableFilterSelection({
-    required this.categoryId,
+  const _FilterSelection({
+    this.categoryId,
     required this.minPrice,
     required this.maxPrice,
     required this.sortBy,
@@ -727,7 +728,10 @@ class _AlwaysAvailableFilterSelection {
   });
 }
 
-class _AlwaysAvailableFilterSheet extends StatefulWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+// Filter sheet
+// ─────────────────────────────────────────────────────────────────────────────
+class _FilterSheet extends StatefulWidget {
   final List<FoodCategory> categories;
   final String? selectedCategoryId;
   final int availableMinPrice;
@@ -736,8 +740,9 @@ class _AlwaysAvailableFilterSheet extends StatefulWidget {
   final int selectedMaxPrice;
   final String sortBy;
   final String sortOrder;
+  final bool hasPriceRange;
 
-  const _AlwaysAvailableFilterSheet({
+  const _FilterSheet({
     required this.categories,
     required this.selectedCategoryId,
     required this.availableMinPrice,
@@ -746,131 +751,101 @@ class _AlwaysAvailableFilterSheet extends StatefulWidget {
     required this.selectedMaxPrice,
     required this.sortBy,
     required this.sortOrder,
+    required this.hasPriceRange,
   });
 
   @override
-  State<_AlwaysAvailableFilterSheet> createState() =>
-      _AlwaysAvailableFilterSheetState();
+  State<_FilterSheet> createState() => _FilterSheetState();
 }
 
-class _AlwaysAvailableFilterSheetState
-    extends State<_AlwaysAvailableFilterSheet> {
-  late String? _categoryId;
+class _FilterSheetState extends State<_FilterSheet> {
+  late String? _catId;
   late int _minPrice;
   late int _maxPrice;
-  late String _sortBy;
-  late String _sortOrder;
-  late final TextEditingController _minPriceController;
-  late final TextEditingController _maxPriceController;
+  late String _sortKey;
   String? _priceError;
 
-  bool get _hasPriceRange =>
-      widget.availableMaxPrice > widget.availableMinPrice &&
-      widget.availableMaxPrice > 0;
+  late TextEditingController _minCtrl;
+  late TextEditingController _maxCtrl;
 
   @override
   void initState() {
     super.initState();
-    _categoryId = widget.selectedCategoryId;
+    _catId = widget.selectedCategoryId;
     _minPrice = widget.selectedMinPrice;
     _maxPrice = widget.selectedMaxPrice;
-    _sortBy = widget.sortBy;
-    _sortOrder = widget.sortOrder;
-    _minPriceController = TextEditingController(text: _minPrice.toString());
-    _maxPriceController = TextEditingController(text: _maxPrice.toString());
+    _sortKey = '${widget.sortBy}_${widget.sortOrder}';
+    _minCtrl = TextEditingController(text: _minPrice.toString());
+    _maxCtrl = TextEditingController(text: _maxPrice.toString());
   }
 
   @override
   void dispose() {
-    _minPriceController.dispose();
-    _maxPriceController.dispose();
+    _minCtrl.dispose();
+    _maxCtrl.dispose();
     super.dispose();
   }
 
-  void _resetFilters() {
-    setState(() {
-      _categoryId = null;
-      _minPrice = widget.availableMinPrice;
-      _maxPrice = widget.availableMaxPrice;
-      _minPriceController.text = _minPrice.toString();
-      _maxPriceController.text = _maxPrice.toString();
-      _sortBy = 'createdAt';
-      _sortOrder = 'desc';
-      _priceError = null;
-    });
-  }
-
-  void _clearPriceError() {
-    if (_priceError == null) return;
-    setState(() => _priceError = null);
-  }
-
-  void _applyFilters() {
-    final minPriceText = _minPriceController.text.trim();
-    final maxPriceText = _maxPriceController.text.trim();
-    final minPrice = int.tryParse(minPriceText);
-    final maxPrice = int.tryParse(maxPriceText);
-
-    if (_hasPriceRange) {
-      if (minPriceText.isEmpty || maxPriceText.isEmpty) {
-        setState(
-          () => _priceError = 'Please enter both min and max price.',
-        );
+  void _apply() {
+    if (widget.hasPriceRange) {
+      final min = int.tryParse(_minCtrl.text.trim());
+      final max = int.tryParse(_maxCtrl.text.trim());
+      if (min == null || max == null) {
+        setState(() => _priceError = 'Enter valid numbers.');
         return;
       }
-      if (minPrice == null || maxPrice == null) {
-        setState(() => _priceError = 'Price must be a valid number.');
+      if (min > max) {
+        setState(() => _priceError = 'Min must be ≤ Max.');
         return;
       }
-      if (minPrice > maxPrice) {
-        setState(
-          () => _priceError =
-              'Min price must be less than or equal to max price.',
-        );
-        return;
-      }
-      if (minPrice < widget.availableMinPrice ||
-          maxPrice > widget.availableMaxPrice) {
-        setState(
-          () => _priceError =
-              'Price must be between ${CurrencyFormatter.vnd(widget.availableMinPrice)} and ${CurrencyFormatter.vnd(widget.availableMaxPrice)}.',
-        );
-        return;
-      }
+      _minPrice = min;
+      _maxPrice = max;
     }
-
+    final parts = _sortKey.split('_');
     Navigator.pop(
       context,
-      _AlwaysAvailableFilterSelection(
-        categoryId: _categoryId,
-        minPrice: minPrice ?? widget.availableMinPrice,
-        maxPrice: maxPrice ?? widget.availableMaxPrice,
-        sortBy: _sortBy,
-        sortOrder: _sortOrder,
+      _FilterSelection(
+        categoryId: _catId,
+        minPrice: _minPrice,
+        maxPrice: _maxPrice,
+        sortBy: parts.first,
+        sortOrder: parts.last,
       ),
     );
   }
 
-  Widget _filterChoiceChip({
-    required String label,
-    required bool selected,
-    required VoidCallback onSelected,
-  }) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onSelected(),
-      backgroundColor: Colors.white,
-      selectedColor: AppColors.primary,
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : AppColors.text,
-        fontWeight: FontWeight.w800,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: selected ? AppColors.primary : AppColors.border,
-          width: 1,
+  void _clear() {
+    setState(() {
+      _catId = null;
+      _minPrice = widget.availableMinPrice;
+      _maxPrice = widget.availableMaxPrice;
+      _minCtrl.text = _minPrice.toString();
+      _maxCtrl.text = _maxPrice.toString();
+      _sortKey = 'createdAt_desc';
+      _priceError = null;
+    });
+  }
+
+  Widget _chip(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : AppColors.text,
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
         ),
       ),
     );
@@ -878,181 +853,240 @@ class _AlwaysAvailableFilterSheetState
 
   @override
   Widget build(BuildContext context) {
-    final sortValue = '${_sortBy}_$_sortOrder';
-
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          24,
-          18,
-          24,
-          MediaQuery.of(context).viewInsets.bottom + 24,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Filter foods',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'Category',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _filterChoiceChip(
-                    label: 'All',
-                    selected: _categoryId == null,
-                    onSelected: () => setState(() => _categoryId = null),
-                  ),
-                  ...widget.categories.map(
-                    (category) => _filterChoiceChip(
-                      label: category.name,
-                      selected: _categoryId == category.id,
-                      onSelected: () {
-                        setState(() => _categoryId = category.id);
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 22),
-              const Text(
-                'Price',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 8),
-              _PriceErrorMessage(message: _priceError),
-              if (_hasPriceRange) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _minPriceController,
-                        keyboardType: TextInputType.number,
-                        onChanged: (_) => _clearPriceError(),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: const InputDecoration(
-                          labelText: 'Min price',
-                          suffixText: 'VND',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _maxPriceController,
-                        keyboardType: TextInputType.number,
-                        onChanged: (_) => _clearPriceError(),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: const InputDecoration(
-                          labelText: 'Max price',
-                          suffixText: 'VND',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ] else
-                const Text(
-                  'No price range available',
-                  style: TextStyle(color: AppColors.subText),
-                ),
-              const SizedBox(height: 18),
-              const Text(
-                'Sort by',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+          24, 0, 24, MediaQuery.of(context).viewInsets.bottom + 28),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 14),
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.border),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.sort, color: AppColors.subText),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: DropdownButton<String>(
-                        value: sortValue,
-                        isExpanded: true,
-                        underline: const SizedBox.shrink(),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'createdAt_desc',
-                            child: Text('Newest'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'price_asc',
-                            child: Text('Price low to high'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'price_desc',
-                            child: Text('Price high to low'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'name_asc',
-                            child: Text('Name A-Z'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value == null) return;
-                          final parts = value.split('_');
-                          setState(() {
-                            _sortBy = parts.first;
-                            _sortOrder = parts.last;
-                          });
-                        },
-                      ),
-                    ),
-                  ],
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(4),
                 ),
               ),
-              const SizedBox(height: 24),
+            ),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Filter & Sort',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // ── Category ──────────────────────────────────────────────
+            const Text('Category',
+                style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    color: AppColors.subText)),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _chip(
+                    'All', _catId == null, () => setState(() => _catId = null)),
+                ...widget.categories.map((c) => _chip(c.name, _catId == c.id,
+                    () => setState(() => _catId = c.id))),
+              ],
+            ),
+
+            // ── Sort ──────────────────────────────────────────────────
+            const SizedBox(height: 20),
+            const Text('Sort by',
+                style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    color: AppColors.subText)),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final item in [
+                  {'key': 'createdAt_desc', 'label': 'Newest'},
+                  {'key': 'price_asc', 'label': 'Price ↑'},
+                  {'key': 'price_desc', 'label': 'Price ↓'},
+                  {'key': 'name_asc', 'label': 'A → Z'},
+                ])
+                  _chip(item['label']!, _sortKey == item['key'],
+                      () => setState(() => _sortKey = item['key']!)),
+              ],
+            ),
+
+            // ── Price ─────────────────────────────────────────────────
+            if (widget.hasPriceRange) ...[
+              const SizedBox(height: 20),
+              const Text('Price range',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: AppColors.subText)),
+              const SizedBox(height: 10),
+              if (_priceError != null) ...[
+                Text(
+                  _priceError!,
+                  style: const TextStyle(color: AppColors.error, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+              ],
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
-                      onPressed: _resetFilters,
-                      child: const Text('Clear'),
+                    child: TextField(
+                      controller: _minCtrl,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      onChanged: (_) => setState(() => _priceError = null),
+                      decoration: InputDecoration(
+                        labelText: 'Min (VND)',
+                        filled: true,
+                        fillColor: AppColors.muted,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10),
+                    child: Text('–', style: TextStyle(fontSize: 18)),
+                  ),
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: _applyFilters,
-                      child: const Text('Apply'),
+                    child: TextField(
+                      controller: _maxCtrl,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      onChanged: (_) => setState(() => _priceError = null),
+                      decoration: InputDecoration(
+                        labelText: 'Max (VND)',
+                        filled: true,
+                        fillColor: AppColors.muted,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                      ),
                     ),
                   ),
                 ],
               ),
             ],
+
+            const SizedBox(height: 28),
+            // ── Buttons ───────────────────────────────────────────────
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _clear,
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.border),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('Clear all',
+                        style: TextStyle(color: AppColors.subText)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    onPressed: _apply,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('Apply',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// List skeleton
+// ─────────────────────────────────────────────────────────────────────────────
+class _ListSkeleton extends StatefulWidget {
+  @override
+  State<_ListSkeleton> createState() => _ListSkeletonState();
+}
+
+class _ListSkeletonState extends State<_ListSkeleton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.4, end: 1.0)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Opacity(
+        opacity: _anim.value,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+          child: ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: 6,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (_, __) => Container(
+              height: 124,
+              decoration: BoxDecoration(
+                color: AppColors.muted,
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
           ),
         ),
       ),
@@ -1060,21 +1094,94 @@ class _AlwaysAvailableFilterSheetState
   }
 }
 
-class _PriceErrorMessage extends StatelessWidget {
-  final String? message;
+// ─────────────────────────────────────────────────────────────────────────────
+// Error view
+// ─────────────────────────────────────────────────────────────────────────────
+class _ErrorView extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
 
-  const _PriceErrorMessage({required this.message});
+  const _ErrorView({required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: message == null ? 0 : 8),
-      child: Text(
-        message ?? '',
-        style: const TextStyle(
-          color: AppColors.error,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.wifi_off_rounded,
+                size: 56, color: AppColors.subText),
+            const SizedBox(height: 16),
+            const Text('Could not load items',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.subText, fontSize: 13)),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try again'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Empty view
+// ─────────────────────────────────────────────────────────────────────────────
+class _EmptyView extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onReset;
+
+  const _EmptyView({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onReset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 56, color: AppColors.subText),
+            const SizedBox(height: 16),
+            Text(title,
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Text(subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.subText, fontSize: 13)),
+            if (onReset != null) ...[
+              const SizedBox(height: 20),
+              TextButton.icon(
+                onPressed: onReset,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Reset filters'),
+                style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+              ),
+            ],
+          ],
         ),
       ),
     );

@@ -7,7 +7,6 @@ class ProfileMenuOption extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final String title;
-  final String subtitle;
   final VoidCallback onTap;
   final bool danger;
 
@@ -16,7 +15,6 @@ class ProfileMenuOption extends StatelessWidget {
     required this.icon,
     required this.iconColor,
     required this.title,
-    required this.subtitle,
     required this.onTap,
     this.danger = false,
   });
@@ -27,14 +25,14 @@ class ProfileMenuOption extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: AppCard(
         onTap: onTap,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
             Container(
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
+                color: iconColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -52,16 +50,8 @@ class ProfileMenuOption extends StatelessWidget {
                     title,
                     style: TextStyle(
                       fontSize: 15,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                       color: danger ? AppColors.error : AppColors.text,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.subText,
                     ),
                   ),
                 ],

@@ -99,6 +99,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               decoration: const InputDecoration(
                 labelText: 'Email',
                 hintText: 'student@unilife.edu',
+                prefixIcon: Icon(Icons.email_outlined),
               ),
             ),
             if (_errorMessage != null) ...[

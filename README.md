@@ -1,32 +1,32 @@
 # UniLife Mobile Flutter
 
-Flutter FE scaffold cho app mobile UniLife, dựng theo bộ màn hình tĩnh đã chốt:
+Flutter FE scaffold for UniLife mobile app, built according to the approved static screens:
 
-- Menu Food: món theo thực đơn ngày, dùng `menuScheduleItemId`, có số suất còn lại.
-- Always Available Food: nước, bánh, kem, snack bán hằng ngày, dùng `foodId`, có stock/in-stock.
+- Menu Food: daily menu items, uses `menuScheduleItemId`, with remaining stock count.
+- Always Available Food: drinks, cakes, ice cream, snacks sold daily, uses `foodId`, with stock/in-stock status.
 
-## Cách chạy
+## How to run
 
 ```bash
 flutter pub get
 flutter run
 ```
 
-## Kết nối backend
+## Connecting to backend
 
-API base URL được cấu hình qua biến môi trường `API_BASE_URL` khi chạy app:
+The API base URL is configured via the environment variable `API_BASE_URL` when running the app:
 
 ```bash
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000/api/v1
 ```
 
-Gợi ý:
+Suggestions:
 
 - Android emulator: `http://10.0.2.2:5000/api/v1`
 - iOS simulator / web local: `http://localhost:5000/api/v1`
-- Thiết bị thật: dùng IP LAN của máy chạy backend (VD `http://192.168.1.10:5000/api/v1`)
+- Real device: use the LAN IP of the machine running the backend (e.g. `http://192.168.1.10:5000/api/v1`)
 
-Nếu bạn giải nén vào một thư mục chưa có native folders Android/iOS, chạy:
+If you extract this into a folder without native Android/iOS folders, run:
 
 ```bash
 flutter create .
@@ -34,9 +34,9 @@ flutter pub get
 flutter run
 ```
 
-Sau này chỉ cần thay service mock trong `lib/services` bằng API thật từ NodeJS/Express backend.
+Later, simply replace the mock services in `lib/services` with real APIs from the NodeJS/Express backend.
 
-## Cấu trúc chính
+## Main Structure
 
 ```txt
 lib/

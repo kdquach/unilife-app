@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../models/customer_rating.dart';
 import '../models/food.dart';
 import '../models/order.dart';
+import '../models/user_notification.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/auth/reset_password_screen.dart';
 import '../screens/auth/verify_register_otp_screen.dart';
 import '../screens/cart/cart_screen.dart';
-import '../screens/cart/checkout_data_note_screen.dart';
+import '../screens/cart/checkout_screen.dart';
 import '../screens/food/food_detail_screen.dart';
 import '../screens/home/main_shell.dart';
 import '../screens/menu/always_available_screen.dart';
@@ -54,11 +56,13 @@ class AppRoutes {
         String? categoryId;
         String? categoryName;
         bool todayOnly = false;
+        String? menuTab;
         if (arguments is Map) {
           initialIndex = arguments['tabIndex'] as int? ?? 0;
           categoryId = arguments['categoryId'] as String?;
           categoryName = arguments['categoryName'] as String?;
           todayOnly = arguments['todayOnly'] as bool? ?? false;
+          menuTab = arguments['menuTab'] as String?;
         }
         return _route(
           MainShell(
@@ -66,6 +70,7 @@ class AppRoutes {
             initialMenuCategoryId: categoryId,
             initialMenuCategoryName: categoryName,
             initialMenuTodayOnly: todayOnly,
+            initialMenuTab: menuTab,
           ),
         );
       case TodayMenuScreen.routeName:
@@ -103,27 +108,62 @@ class AppRoutes {
         return _route(FoodDetailScreen(food: settings.arguments as Food));
       case CartScreen.routeName:
         return _route(const CartScreen());
-      case CheckoutDataNoteScreen.routeName:
-        return _route(const CheckoutDataNoteScreen());
+      case CheckoutScreen.routeName:
+        return _route(const CheckoutScreen());
       case SepayPaymentScreen.routeName:
         final order = settings.arguments as Order;
         return _route(SepayPaymentScreen(order: order));
       case PaymentSuccessScreen.routeName:
-        final orderId = settings.arguments as String? ?? '';
-        return _route(PaymentSuccessScreen(orderId: orderId));
+        final arguments = settings.arguments;
+        String orderId = '';
+        String? orderCode;
+        if (arguments is Map) {
+          orderId = arguments['orderId'] as String? ?? '';
+          orderCode = arguments['orderCode'] as String?;
+        } else if (arguments is String) {
+          orderId = arguments;
+        }
+        return _route(
+            PaymentSuccessScreen(orderId: orderId, orderCode: orderCode));
       case OrderListScreen.routeName:
-        return _route(const OrderListScreen());
+        final arguments = settings.arguments;
+        String initialTab = 'Active';
+        if (arguments is Map) {
+          initialTab = arguments['initialTab'] as String? ?? 'Active';
+        }
+        return _route(OrderListScreen(initialTab: initialTab));
       case OrderDetailScreen.routeName:
         final orderId = settings.arguments as String? ?? '';
         return _route(OrderDetailScreen(orderId: orderId));
       case NotificationsScreen.routeName:
         return _route(const NotificationsScreen());
       case NotificationDetailScreen.routeName:
-        return _route(const NotificationDetailScreen());
+        final notification = settings.arguments is UserNotification
+            ? settings.arguments as UserNotification
+            : null;
+        return _route(
+          NotificationDetailScreen(initialNotification: notification),
+        );
       case RatingListScreen.routeName:
-        return _route(const RatingListScreen());
+        final arguments = settings.arguments;
+        return _route(
+          RatingListScreen(
+            args: arguments is RatingListArgs ? arguments : null,
+          ),
+        );
       case CreateRatingScreen.routeName:
-        return _route(const CreateRatingScreen());
+        final arguments = settings.arguments;
+        Order? order;
+        CustomerRating? rating;
+        if (arguments is CreateRatingArgs) {
+          order = arguments.order;
+          rating = arguments.rating;
+        } else if (arguments is Order) {
+          order = arguments;
+        } else if (arguments is CustomerRating) {
+          rating = arguments;
+        }
+        return _route(CreateRatingScreen(initialOrder: order, rating: rating));
       case RatingSuccessScreen.routeName:
         return _route(const RatingSuccessScreen());
       case EditProfileScreen.routeName:

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_assets.dart';
 import '../../widgets/app_button.dart';
-import '../auth/login_screen.dart';
+import '../home/main_shell.dart';
 
 class SplashScreen extends StatelessWidget {
   static const String routeName = '/';
@@ -57,13 +57,13 @@ class SplashScreen extends StatelessWidget {
                   // Feature rows
                   _FeatureList(),
                   const Spacer(),
-                  // ── CTA button (dùng AppButton của dự án) ───────────────────
+                  // ── CTA button (using project AppButton) ───────────────────
                   AppButton(
                     label: 'Get Started',
                     secondary: true,
                     onPressed: () => Navigator.pushReplacementNamed(
                       context,
-                      LoginScreen.routeName,
+                      MainShell.routeName,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -98,7 +98,7 @@ class SplashScreen extends StatelessWidget {
 // ─── Feature list ──────────────────────────────────────────────────────────────
 class _FeatureList extends StatelessWidget {
   static const _features = [
-    (Icons.receipt_long_outlined, 'Order in advance.', 'Mới'),
+    (Icons.receipt_long_outlined, 'Order in advance.', 'New'),
     (Icons.access_time_outlined, 'Skip the queue', null),
     (Icons.location_on_outlined, 'Track actual orders', null),
   ];

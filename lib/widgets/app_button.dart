@@ -7,6 +7,7 @@ class AppButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool secondary;
   final bool danger;
+  final bool isLoading;
 
   const AppButton({
     super.key,
@@ -14,6 +15,7 @@ class AppButton extends StatelessWidget {
     this.onPressed,
     this.secondary = false,
     this.danger = false,
+    this.isLoading = false,
   });
 
   @override
@@ -28,14 +30,16 @@ class AppButton extends StatelessWidget {
       height: 52,
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: onPressed,
+        onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: background,
           foregroundColor: foreground,
           disabledBackgroundColor: AppColors.border,
           disabledForegroundColor: AppColors.subText,
         ),
-        child: Text(label),
+        child: isLoading 
+            ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
+            : Text(label),
       ),
     );
   }

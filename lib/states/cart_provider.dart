@@ -8,6 +8,7 @@ import '../services/cart_service.dart';
 
 class CartNotifier extends AsyncNotifier<Cart?> {
   final _cartService = CartService(ApiClient());
+  final Set<String> _pendingAddKeys = {};
 
   @override
   Future<Cart?> build() async {
@@ -36,21 +37,42 @@ class CartNotifier extends AsyncNotifier<Cart?> {
     state = await AsyncValue.guard(() => _fetchCart());
   }
 
-  Future<void> addItem(Food food, {int quantity = 1}) async {
+  Future<void> addItem(
+    Food food, {
+    int quantity = 1,
+    bool notify = true,
+  }) async {
     final token = await AuthStorage.getToken();
     if (token == null) {
       throw Exception('No access token found. Please login again.');
     }
-    
-    final payload = food.toCartAddPayload(quantity);
 
-    final response = await _cartService.addItem(payload, token: token);
-    
-    if (response['success'] == true) {
-      final data = response['data'] as Map<String, dynamic>;
-      state = AsyncValue.data(Cart.fromJson(data));
-    } else {
-      throw Exception(response['message']?.toString() ?? 'Failed to add item');
+    final payload = food.toCartAddPayload(quantity);
+    if (!notify) {
+      payload['suppressNotification'] = true;
+    }
+    final addKey = [
+      payload['menuScheduleItemId']?.toString() ?? '',
+      payload['foodId']?.toString() ?? '',
+      quantity.toString(),
+    ].join(':');
+
+    if (_pendingAddKeys.contains(addKey)) return;
+    _pendingAddKeys.add(addKey);
+
+    try {
+      final response = await _cartService.addItem(payload, token: token);
+
+      if (response['success'] == true) {
+        final data = response['data'] as Map<String, dynamic>;
+        state = AsyncValue.data(Cart.fromJson(data));
+      } else {
+        throw Exception(
+          response['message']?.toString() ?? 'Failed to add item',
+        );
+      }
+    } finally {
+      _pendingAddKeys.remove(addKey);
     }
   }
 
@@ -59,14 +81,16 @@ class CartNotifier extends AsyncNotifier<Cart?> {
     if (token == null) {
       throw Exception('No access token found. Please login again.');
     }
-    
-    final response = await _cartService.updateItemQuantity(cartItemId, quantity, token: token);
-    
+
+    final response = await _cartService.updateItemQuantity(cartItemId, quantity,
+        token: token);
+
     if (response['success'] == true) {
       final data = response['data'] as Map<String, dynamic>;
       state = AsyncValue.data(Cart.fromJson(data));
     } else {
-      throw Exception(response['message']?.toString() ?? 'Failed to update item quantity');
+      throw Exception(
+          response['message']?.toString() ?? 'Failed to update item quantity');
     }
   }
 
@@ -75,17 +99,19 @@ class CartNotifier extends AsyncNotifier<Cart?> {
     if (token == null) {
       throw Exception('No access token found. Please login again.');
     }
-    
+
     // Optimistic Update
     final previousState = state;
     if (state.hasValue && state.value != null) {
       final currentCart = state.value!;
-      final newItems = currentCart.items.where((i) => i.cartItemId != cartItemId).toList();
+      final newItems =
+          currentCart.items.where((i) => i.cartItemId != cartItemId).toList();
       try {
-        final removedItem = currentCart.items.firstWhere((i) => i.cartItemId == cartItemId);
+        final removedItem =
+            currentCart.items.firstWhere((i) => i.cartItemId == cartItemId);
         final newTotalPrice = currentCart.totalPrice - removedItem.subtotal;
         final newTotalItems = currentCart.totalItems - 1;
-        
+
         state = AsyncValue.data(currentCart.copyWith(
           items: newItems,
           totalPrice: newTotalPrice,
@@ -98,12 +124,13 @@ class CartNotifier extends AsyncNotifier<Cart?> {
 
     try {
       final response = await _cartService.removeItem(cartItemId, token: token);
-      
+
       if (response['success'] == true) {
         final data = response['data'] as Map<String, dynamic>;
         state = AsyncValue.data(Cart.fromJson(data));
       } else {
-        throw Exception(response['message']?.toString() ?? 'Failed to remove item');
+        throw Exception(
+            response['message']?.toString() ?? 'Failed to remove item');
       }
     } catch (e) {
       // Rollback on failure

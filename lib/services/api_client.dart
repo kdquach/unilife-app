@@ -9,10 +9,10 @@ class ApiClient {
 
   final http.Client _client;
 
-  /// Tự động chọn base URL phù hợp với môi trường:
+  /// Automatically select base URL suitable for the environment:
   ///   - Web (Chrome)        → http://localhost:5000/api/v1
   ///   - Android Emulator    → http://10.0.2.2:5000/api/v1
-  ///   - Có thể override qua --dart-define=API_BASE_URL=...
+  ///   - Can be overridden via --dart-define=API_BASE_URL=...
   static String get baseUrl {
     const override = String.fromEnvironment('API_BASE_URL');
     if (override.isNotEmpty) return override;
@@ -118,5 +118,5 @@ class ApiException implements Exception {
   ApiException({required this.statusCode, required this.message});
 
   @override
-  String toString() => 'ApiException($statusCode): $message';
+  String toString() => message;
 }

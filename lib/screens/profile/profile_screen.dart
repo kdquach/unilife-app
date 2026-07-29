@@ -39,34 +39,14 @@ class ProfileScreen extends ConsumerWidget {
               padding: EdgeInsets.zero,
               children: [
                 ProfileHeader(profile: profile),
-                const SizedBox(height: 64),
+                const SizedBox(height: 20),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        profile.fullName,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        profile.email,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.subText, fontSize: 14, fontWeight: FontWeight.w500),
-                      ),
-                      const SizedBox(height: 14),
-                      Center(
-                        child: StatusBadge(
-                          label: profile.role,
-                          color: AppColors.primary,
-                          background: AppColors.primarySoft,
-                        ),
-                      ),
-                      const SizedBox(height: 28),
                       ProfileDetailsCard(profile: profile),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 20),
                       const ProfileActionsList(),
                     ],
                   ),
