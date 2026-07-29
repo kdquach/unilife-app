@@ -24,6 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final AuthService _authService = AuthService(ApiClient());
   bool _isLoading = false;
+  bool _obscurePassword = true;
   String? _errorMessage;
 
   @override
@@ -83,27 +84,40 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 36),
               Image.asset(AppAssets.logoMd, height: 76),
               const SizedBox(height: 28),
-              const Text('Welcome back',
+              const Text('Login',
                   style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 8),
-              const Text('Login to order meals and track your queue.',
-                  style: TextStyle(color: AppColors.subText)),
               const SizedBox(height: 48),
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
-                    labelText: 'Email', hintText: 'customer1@unilife.local'),
+                  labelText: 'Email',
+                  hintText: 'customer1@unilife.local',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
-                obscureText: true,
+                obscureText: _obscurePassword,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _handleLogin(),
-                decoration: const InputDecoration(
-                    labelText: 'Password', hintText: '********'),
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  hintText: '********',
+                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                  suffixIcon: IconButton(
+                    onPressed: () => setState(
+                      () => _obscurePassword = !_obscurePassword,
+                    ),
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                  ),
+                ),
               ),
               Align(
                 alignment: Alignment.centerRight,
@@ -123,12 +137,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 label: _isLoading ? 'Logging in...' : 'Login',
                 onPressed: _isLoading ? null : _handleLogin,
               ),
-              const SizedBox(height: 12),
-              AppButton(
-                  label: 'Continue as Guest',
-                  secondary: true,
-                  onPressed: () => Navigator.pushReplacementNamed(
-                      context, MainShell.routeName)),
               const SizedBox(height: 42),
               TextButton(
                 onPressed: () =>

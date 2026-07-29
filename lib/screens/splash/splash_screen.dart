@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_assets.dart';
 import '../../widgets/app_button.dart';
-import '../auth/login_screen.dart';
+import '../home/main_shell.dart';
 
 class SplashScreen extends StatelessWidget {
   static const String routeName = '/';
@@ -63,7 +63,7 @@ class SplashScreen extends StatelessWidget {
                     secondary: true,
                     onPressed: () => Navigator.pushReplacementNamed(
                       context,
-                      LoginScreen.routeName,
+                      MainShell.routeName,
                     ),
                   ),
                   const SizedBox(height: 10),
