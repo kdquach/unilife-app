@@ -126,40 +126,67 @@ class _MainShellState extends ConsumerState<MainShell> {
 
     return Scaffold(
       body: screens[_index],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        indicatorColor: AppColors.primarySoft,
-        onDestinationSelected: _handleDestinationSelected,
-        destinations: [
-          const NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: 'Home'),
-          const NavigationDestination(
-              icon: Icon(Icons.restaurant_menu_outlined),
-              selectedIcon: Icon(Icons.restaurant_menu_rounded),
-              label: 'Menu'),
-          NavigationDestination(
-              icon: Badge(
-                isLabelVisible: cartItemsCount > 0,
-                label: Text(cartItemsCount.toString()),
-                child: const Icon(Icons.shopping_cart_outlined),
-              ),
-              selectedIcon: Badge(
-                isLabelVisible: cartItemsCount > 0,
-                label: Text(cartItemsCount.toString()),
-                child: const Icon(Icons.shopping_cart_rounded),
-              ),
-              label: 'Cart'),
-          const NavigationDestination(
-              icon: Icon(Icons.receipt_long_outlined),
-              selectedIcon: Icon(Icons.receipt_long_rounded),
-              label: 'Orders'),
-          NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded),
-              selectedIcon: Icon(Icons.person_rounded),
-              label: 'Profile'),
-        ],
+      bottomNavigationBar: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        child: NavigationBarTheme(
+          data: NavigationBarThemeData(
+            backgroundColor: Colors.white,
+            indicatorColor: AppColors.primarySoft,
+            iconTheme: WidgetStateProperty.resolveWith((states) {
+              final selected = states.contains(WidgetState.selected);
+              return IconThemeData(
+                color: selected ? AppColors.primary : const Color(0xFF3F3F3F),
+              );
+            }),
+            labelTextStyle: WidgetStateProperty.resolveWith((states) {
+              final selected = states.contains(WidgetState.selected);
+              return TextStyle(
+                color: selected ? AppColors.primary : const Color(0xFF3F3F3F),
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              );
+            }),
+          ),
+          child: NavigationBar(
+            selectedIndex: _index,
+            elevation: 0,
+            indicatorColor: AppColors.primarySoft,
+            onDestinationSelected: _handleDestinationSelected,
+            destinations: [
+              const NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home_rounded),
+                  label: 'Home'),
+              const NavigationDestination(
+                  icon: Icon(Icons.restaurant_menu_outlined),
+                  selectedIcon: Icon(Icons.restaurant_menu_rounded),
+                  label: 'Menu'),
+              NavigationDestination(
+                  icon: Badge(
+                    isLabelVisible: cartItemsCount > 0,
+                    label: Text(cartItemsCount.toString()),
+                    child: const Icon(Icons.shopping_cart_outlined),
+                  ),
+                  selectedIcon: Badge(
+                    isLabelVisible: cartItemsCount > 0,
+                    label: Text(cartItemsCount.toString()),
+                    child: const Icon(Icons.shopping_cart_rounded),
+                  ),
+                  label: 'Cart'),
+              const NavigationDestination(
+                  icon: Icon(Icons.receipt_long_outlined),
+                  selectedIcon: Icon(Icons.receipt_long_rounded),
+                  label: 'Orders'),
+              NavigationDestination(
+                  icon: Icon(Icons.person_outline_rounded),
+                  selectedIcon: Icon(Icons.person_rounded),
+                  label: 'Profile'),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -133,7 +133,12 @@ class AppRoutes {
           NotificationDetailScreen(initialNotification: notification),
         );
       case RatingListScreen.routeName:
-        return _route(const RatingListScreen());
+        final arguments = settings.arguments;
+        return _route(
+          RatingListScreen(
+            args: arguments is RatingListArgs ? arguments : null,
+          ),
+        );
       case CreateRatingScreen.routeName:
         final arguments = settings.arguments;
         Order? order;

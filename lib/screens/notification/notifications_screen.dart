@@ -195,16 +195,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
-        itemCount: _notifications.length + 1,
+        itemCount: _notifications.length,
         separatorBuilder: (_, __) => const SizedBox(height: 14),
         itemBuilder: (context, index) {
-          if (index == 0) {
-            return const Text(
-              'Updates about cart, orders, payment and pickup status',
-              style: TextStyle(color: AppColors.subText),
-            );
-          }
-          final notification = _notifications[index - 1];
+          final notification = _notifications[index];
           return _NotificationTile(
             notification: notification,
             onTap: () => _openDetail(notification),
@@ -225,62 +219,42 @@ class _NotificationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppCard(
       onTap: onTap,
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: _typeColor(notification.type).withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              _typeIcon(notification.type),
-              color: _typeColor(notification.type),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        notification.title,
-                        style: const TextStyle(fontWeight: FontWeight.w900),
-                      ),
-                    ),
-                    if (!notification.isRead)
-                      Container(
-                        width: 10,
-                        height: 10,
-                        margin: const EdgeInsets.only(top: 4, left: 8),
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                  ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  notification.title,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  notification.body,
-                  style: const TextStyle(color: AppColors.subText, height: 1.4),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  _formatDate(notification.createdAt),
-                  style: const TextStyle(
-                    color: AppColors.subText,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+              ),
+              if (!notification.isRead)
+                Container(
+                  width: 10,
+                  height: 10,
+                  margin: const EdgeInsets.only(top: 4, left: 8),
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
                   ),
                 ),
-              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            notification.body,
+            style: const TextStyle(color: AppColors.subText, height: 1.4),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            _formatDate(notification.createdAt),
+            style: const TextStyle(
+              color: AppColors.subText,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -326,37 +300,6 @@ class _NotificationMessage extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-IconData _typeIcon(String type) {
-  switch (type) {
-    case 'CART_ITEM_ADDED':
-      return Icons.shopping_cart_outlined;
-    case 'ORDER_CREATED':
-      return Icons.receipt_long_outlined;
-    case 'PAYMENT_SUCCESS':
-      return Icons.payments_outlined;
-    case 'ORDER_CANCELLED':
-      return Icons.cancel_outlined;
-    case 'ORDER_READY':
-      return Icons.restaurant_outlined;
-    default:
-      return Icons.notifications_outlined;
-  }
-}
-
-Color _typeColor(String type) {
-  switch (type) {
-    case 'PAYMENT_SUCCESS':
-    case 'ORDER_READY':
-      return AppColors.success;
-    case 'ORDER_CANCELLED':
-      return AppColors.error;
-    case 'ORDER_CREATED':
-      return AppColors.warning;
-    default:
-      return AppColors.primary;
   }
 }
 

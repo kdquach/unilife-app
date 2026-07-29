@@ -431,7 +431,7 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
 
             // ── Content ─────────────────────────────────────────────────────
             if (_isLoading)
-              SliverFillRemaining(child: _GridSkeleton())
+              SliverFillRemaining(child: _ListSkeleton())
             else if (_error != null)
               SliverFillRemaining(
                 child: _ErrorView(message: _error!, onRetry: _loadData),
@@ -448,24 +448,17 @@ class _AlwaysAvailableScreenState extends ConsumerState<AlwaysAvailableScreen> {
             else
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 14,
-                    crossAxisSpacing: 14,
-                    childAspectRatio: 0.76,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (_, i) {
-                      final food = _foods[i];
-                      return _AlwaysAvailableCard(
-                        food: food,
-                        onTap: () => _open(food),
-                        onAdd: food.canAddToCart ? () => _add(food) : null,
-                      );
-                    },
-                    childCount: _foods.length,
-                  ),
+                sliver: SliverList.separated(
+                  itemCount: _foods.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (_, i) {
+                    final food = _foods[i];
+                    return _AlwaysAvailableCard(
+                      food: food,
+                      onTap: () => _open(food),
+                      onAdd: food.canAddToCart ? () => _add(food) : null,
+                    );
+                  },
                 ),
               ),
           ],
@@ -498,144 +491,171 @@ class _AlwaysAvailableCard extends StatelessWidget {
     final imageUrl = _resolveImageUrl(food);
     final isSoldOut = !food.canAddToCart;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(20)),
-              child: Stack(
-                children: [
-                  SizedBox(
-                    height: 105,
-                    width: double.infinity,
-                    child: imageUrl != null
-                        ? Image.network(imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _placeholder())
-                        : _placeholder(),
-                  ),
-                  if (isSoldOut)
-                    Container(
-                      height: 105,
-                      color: Colors.black.withValues(alpha: 0.35),
-                      alignment: Alignment.center,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.7),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 124),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border, width: 0.6),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.035),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius:
+                    const BorderRadius.horizontal(left: Radius.circular(18)),
+                child: Stack(
+                  children: [
+                    SizedBox(
+                      width: 112,
+                      height: 124,
+                      child: imageUrl != null
+                          ? Image.network(
+                              imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => _placeholder(),
+                            )
+                          : _placeholder(),
+                    ),
+                    if (isSoldOut)
+                      Container(
+                        width: 112,
+                        height: 124,
+                        color: Colors.black.withValues(alpha: 0.38),
+                        alignment: Alignment.center,
                         child: const Text(
                           'SOLD OUT',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: FontWeight.w900,
-                            letterSpacing: 0.5,
                           ),
                         ),
                       ),
-                    ),
-                  if (food.category.isNotEmpty)
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.48),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          food.category,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            // Info
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      food.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.text,
-                        height: 1.3,
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            CurrencyFormatter.vnd(food.price),
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: onAdd,
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: isSoldOut
-                                  ? AppColors.muted
-                                  : AppColors.primary,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              isSoldOut
-                                  ? Icons.remove_rounded
-                                  : Icons.add_rounded,
-                              color:
-                                  isSoldOut ? AppColors.subText : Colors.white,
-                              size: 16,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          if (food.category.isNotEmpty)
+                            Flexible(
+                              child: _MiniTag(
+                                label: food.category,
+                                color: AppColors.primary,
+                                bgColor: AppColors.primarySoft,
+                              ),
+                            ),
+                          const Spacer(),
+                          const Icon(
+                            Icons.star_rounded,
+                            size: 14,
+                            color: Color(0xFFF59E0B),
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            food.rating.toStringAsFixed(1),
+                            style: const TextStyle(
+                              color: AppColors.text,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        food.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.text,
+                          height: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        food.statusLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color:
+                              isSoldOut ? AppColors.error : AppColors.success,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              CurrencyFormatter.vnd(food.price),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          SizedBox(
+                            width: 76,
+                            height: 36,
+                            child: ElevatedButton(
+                              onPressed: onAdd,
+                              style: ElevatedButton.styleFrom(
+                                fixedSize: const Size(76, 36),
+                                minimumSize: const Size(76, 36),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                backgroundColor: isSoldOut
+                                    ? AppColors.muted
+                                    : AppColors.primary,
+                                foregroundColor: isSoldOut
+                                    ? AppColors.subText
+                                    : Colors.white,
+                                elevation: 0,
+                                padding: EdgeInsets.zero,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                'Add',
+                                style: TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -643,7 +663,8 @@ class _AlwaysAvailableCard extends StatelessWidget {
 
   Widget _placeholder() {
     return Container(
-      height: 105,
+      width: 112,
+      height: 124,
       color: AppColors.muted,
       alignment: Alignment.center,
       child: Icon(
@@ -658,6 +679,39 @@ class _AlwaysAvailableCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Filter selection data class
 // ─────────────────────────────────────────────────────────────────────────────
+class _MiniTag extends StatelessWidget {
+  final String label;
+  final Color color;
+  final Color bgColor;
+
+  const _MiniTag({
+    required this.label,
+    required this.color,
+    required this.bgColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
 class _FilterSelection {
   final String? categoryId;
   final int minPrice;
@@ -887,6 +941,13 @@ class _FilterSheetState extends State<_FilterSheet> {
                       fontSize: 14,
                       color: AppColors.subText)),
               const SizedBox(height: 10),
+              if (_priceError != null) ...[
+                Text(
+                  _priceError!,
+                  style: const TextStyle(color: AppColors.error, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+              ],
               Row(
                 children: [
                   Expanded(
@@ -933,12 +994,6 @@ class _FilterSheetState extends State<_FilterSheet> {
                   ),
                 ],
               ),
-              if (_priceError != null) ...[
-                const SizedBox(height: 6),
-                Text(_priceError!,
-                    style:
-                        const TextStyle(color: AppColors.error, fontSize: 12)),
-              ],
             ],
 
             const SizedBox(height: 28),
@@ -984,14 +1039,14 @@ class _FilterSheetState extends State<_FilterSheet> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Grid Skeleton
+// List skeleton
 // ─────────────────────────────────────────────────────────────────────────────
-class _GridSkeleton extends StatefulWidget {
+class _ListSkeleton extends StatefulWidget {
   @override
-  State<_GridSkeleton> createState() => _GridSkeletonState();
+  State<_ListSkeleton> createState() => _ListSkeletonState();
 }
 
-class _GridSkeletonState extends State<_GridSkeleton>
+class _ListSkeletonState extends State<_ListSkeleton>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _anim;
@@ -1020,17 +1075,13 @@ class _GridSkeletonState extends State<_GridSkeleton>
         opacity: _anim.value,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-          child: GridView.builder(
+          child: ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: 6,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 14,
-              crossAxisSpacing: 14,
-              childAspectRatio: 0.76,
-            ),
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (_, __) => Container(
+              height: 124,
               decoration: BoxDecoration(
                 color: AppColors.muted,
                 borderRadius: BorderRadius.circular(20),
