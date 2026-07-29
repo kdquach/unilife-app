@@ -24,6 +24,7 @@ class MainShell extends ConsumerStatefulWidget {
   final String? initialMenuCategoryId;
   final String? initialMenuCategoryName;
   final bool initialMenuTodayOnly;
+  final String? initialMenuTab;
 
   const MainShell({
     super.key,
@@ -31,6 +32,7 @@ class MainShell extends ConsumerStatefulWidget {
     this.initialMenuCategoryId,
     this.initialMenuCategoryName,
     this.initialMenuTodayOnly = false,
+    this.initialMenuTab,
   });
 
   @override
@@ -118,6 +120,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         preselectedCategoryId: widget.initialMenuCategoryId,
         preselectedCategoryName: widget.initialMenuCategoryName,
         preselectedTodayOnly: widget.initialMenuTodayOnly,
+        initialTab: widget.initialMenuTab,
       ),
       const CartScreen(showBackButton: false),
       const OrderListScreen(showBackButton: false),

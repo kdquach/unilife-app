@@ -279,6 +279,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  void _openMenuTab(String tab) {
+    Navigator.pushNamed(
+      context,
+      MainShell.routeName,
+      arguments: {
+        'tabIndex': 1,
+        'menuTab': tab,
+      },
+    );
+  }
+
   void _scrollToCategories() {
     final ctx = _categoriesKey.currentContext;
     if (ctx == null) return;
@@ -360,8 +371,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _SectionHeader(
                 title: 'Today\'s Menu',
                 action: 'See more',
-                onAction: () =>
-                    Navigator.pushNamed(context, TodayMenuScreen.routeName),
+                onAction: () => _openMenuTab('today'),
               ),
               _HomeFoodCardList(
                 foods: _menuFoods,
@@ -372,10 +382,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _SectionHeader(
                 title: 'Always Available',
                 action: 'See more',
-                onAction: () => Navigator.pushNamed(
-                  context,
-                  AlwaysAvailableScreen.routeName,
-                ),
+                onAction: () => _openMenuTab('always'),
               ),
               _HomeFoodCardList(
                 foods: regularFoods,

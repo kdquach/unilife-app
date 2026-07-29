@@ -38,50 +38,45 @@ class ProfileActionsList extends StatelessWidget {
           icon: Icons.person_outline_rounded,
           iconColor: const Color(0xFFF97316),
           title: 'Edit Profile',
-          subtitle: 'Update your display name and contact details',
-          onTap: () => Navigator.pushNamed(context, EditProfileScreen.routeName),
+          onTap: () =>
+              Navigator.pushNamed(context, EditProfileScreen.routeName),
         ),
         ProfileMenuOption(
           icon: Icons.camera_alt_outlined,
           iconColor: const Color(0xFF3B82F6),
           title: 'Upload Avatar',
-          subtitle: 'Change or upload a new profile picture',
-          onTap: () => Navigator.pushNamed(context, UploadAvatarScreen.routeName),
+          onTap: () =>
+              Navigator.pushNamed(context, UploadAvatarScreen.routeName),
         ),
         ProfileMenuOption(
           icon: Icons.lock_outline_rounded,
           iconColor: const Color(0xFF10B981),
           title: 'Change Password',
-          subtitle: 'Secure your account with a new password',
-          onTap: () => Navigator.pushNamed(context, ChangePasswordScreen.routeName),
+          onTap: () =>
+              Navigator.pushNamed(context, ChangePasswordScreen.routeName),
         ),
         const SizedBox(height: 24),
-
         _buildSectionTitle('My Activity'),
         const SizedBox(height: 12),
         ProfileMenuOption(
           icon: Icons.star_border_rounded,
           iconColor: const Color(0xFFF97316),
           title: 'My Ratings',
-          subtitle: 'View and manage food reviews you have submitted',
           onTap: () => Navigator.pushNamed(context, RatingListScreen.routeName),
         ),
         const SizedBox(height: 24),
-
         _buildSectionTitle('App Utilities'),
         const SizedBox(height: 12),
         ProfileMenuOption(
           icon: Icons.code_rounded,
           iconColor: const Color(0xFF3B82F6),
           title: 'UI States Screen',
-          subtitle: 'Preview sample loading, error, and empty states',
           onTap: () => Navigator.pushNamed(context, UiStatesScreen.routeName),
         ),
         ProfileMenuOption(
           icon: Icons.logout_rounded,
           iconColor: AppColors.error,
           title: 'Logout',
-          subtitle: 'Sign out of your account on this device',
           danger: true,
           onTap: () => _showLogout(context),
         ),

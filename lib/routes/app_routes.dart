@@ -56,11 +56,13 @@ class AppRoutes {
         String? categoryId;
         String? categoryName;
         bool todayOnly = false;
+        String? menuTab;
         if (arguments is Map) {
           initialIndex = arguments['tabIndex'] as int? ?? 0;
           categoryId = arguments['categoryId'] as String?;
           categoryName = arguments['categoryName'] as String?;
           todayOnly = arguments['todayOnly'] as bool? ?? false;
+          menuTab = arguments['menuTab'] as String?;
         }
         return _route(
           MainShell(
@@ -68,6 +70,7 @@ class AppRoutes {
             initialMenuCategoryId: categoryId,
             initialMenuCategoryName: categoryName,
             initialMenuTodayOnly: todayOnly,
+            initialMenuTab: menuTab,
           ),
         );
       case TodayMenuScreen.routeName:

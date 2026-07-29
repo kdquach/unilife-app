@@ -200,6 +200,23 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
     return _food.stockQuantity;
   }
 
+  String _availabilityLabel(Food food) {
+    if (food.isMenuFood) {
+      if (food.remainingServings == null) return 'Available';
+      return food.remainingServings! > 0
+          ? '${food.remainingServings} servings left'
+          : 'Sold out';
+    }
+
+    if (food.stockQuantity != null) {
+      return food.stockQuantity! > 0
+          ? '${food.stockQuantity} items left'
+          : 'Out of stock';
+    }
+
+    return food.statusLabel;
+  }
+
   Future<void> _addToCart({bool openCart = false}) async {
     if (!_food.canAddToCart) return;
 
@@ -381,7 +398,6 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
                       children: [
                         // Category Chip
                         _InfoChip(
-                          icon: Icons.category_outlined,
                           label: food.isMenuFood
                               ? '${food.menuDateLabel ?? 'Today'} · ${food.mealType ?? 'Menu'}'
                               : (food.category.isEmpty
@@ -393,14 +409,7 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
 
                         // Stock / Servings Chip
                         _InfoChip(
-                          icon: food.canAddToCart
-                              ? Icons.inventory_2_outlined
-                              : Icons.do_not_disturb_on_outlined,
-                          label: food.isMenuFood
-                              ? (food.remainingServings == null
-                                  ? 'Unlimited servings left'
-                                  : '${food.remainingServings} servings left')
-                              : food.statusLabel,
+                          label: _availabilityLabel(food),
                           backgroundColor: food.canAddToCart
                               ? const Color(0xFFE8F5E9)
                               : const Color(0xFFFFEBEE),
@@ -1106,13 +1115,11 @@ class _CircleActionButton extends StatelessWidget {
 // Styled Info Chip Component
 // ─────────────────────────────────────────────────────────────────────────────
 class _InfoChip extends StatelessWidget {
-  final IconData icon;
   final String label;
   final Color backgroundColor;
   final Color textColor;
 
   const _InfoChip({
-    required this.icon,
     required this.label,
     required this.backgroundColor,
     required this.textColor,
@@ -1129,8 +1136,6 @@ class _InfoChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: textColor),
-          const SizedBox(width: 5),
           Text(
             label,
             style: TextStyle(

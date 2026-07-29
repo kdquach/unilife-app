@@ -34,12 +34,14 @@ class MenuScreen extends ConsumerStatefulWidget {
   final String? preselectedCategoryId;
   final String? preselectedCategoryName;
   final bool preselectedTodayOnly;
+  final String? initialTab;
 
   const MenuScreen({
     super.key,
     this.preselectedCategoryId,
     this.preselectedCategoryName,
     this.preselectedTodayOnly = false,
+    this.initialTab,
   });
 
   @override
@@ -72,8 +74,21 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
   void initState() {
     super.initState();
     _selectedCategoryName = widget.preselectedCategoryName;
+    _selectedTab = _tabFromName(widget.initialTab);
     _computeWeekDays();
     _loadData();
+  }
+
+  _MenuTab _tabFromName(String? name) {
+    switch (name) {
+      case 'week':
+        return _MenuTab.week;
+      case 'always':
+        return _MenuTab.always;
+      case 'today':
+      default:
+        return _MenuTab.today;
+    }
   }
 
   @override
