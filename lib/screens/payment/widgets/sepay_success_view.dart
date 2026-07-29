@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../models/order.dart';
@@ -184,6 +185,42 @@ class _SepaySuccessViewState extends State<SepaySuccessView> with SingleTickerPr
               ],
             ),
           ),
+          if (widget.order.code.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              color: Colors.grey.shade50,
+              child: Column(
+                children: [
+                  const Text(
+                    'Scan for Counter Staff',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.subText,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  QrImageView(
+                    data: widget.order.code,
+                    version: QrVersions.auto,
+                    size: 180.0,
+                    backgroundColor: Colors.white,
+                    errorCorrectionLevel: QrErrorCorrectLevel.M,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Order Code: ${widget.order.code}',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.text,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           SizedBox(
             height: 24,
             child: Stack(

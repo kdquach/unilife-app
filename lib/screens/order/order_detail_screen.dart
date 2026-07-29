@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
@@ -164,6 +166,26 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
         ),
       );
     }
+  }
+
+  Future<void> _copyOrderCode(String code) async {
+    await Clipboard.setData(ClipboardData(text: code));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        margin: const EdgeInsets.all(16),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: Color(0xFF86EFAC), size: 18),
+            const SizedBox(width: 10),
+            const Text('Order code copied', style: TextStyle(color: Colors.white, fontSize: 13)),
+          ],
+        ),
+      ),
+    );
   }
 
   // ─── Backend Status Flow ──────────────────────────────────────────────────
@@ -365,7 +387,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
           slivers: [
             // ─── Hero Header ────────────────────────────────────────
             SliverAppBar(
-              expandedHeight: 200,
+              expandedHeight: 226,
               pinned: true,
               backgroundColor: meta.gradientColors.first,
               leading: GestureDetector(
@@ -389,86 +411,107 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                       end: Alignment.bottomRight,
                     ),
                   ),
-                  child: SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 52, 24, 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                  child: Stack(
+                    children: [
+                      // Decorative translucent circles for visual polish
+                      Positioned(
+                        right: -36,
+                        top: -30,
+                        child: _DecorCircle(size: 130, opacity: 0.08),
+                      ),
+                      Positioned(
+                        left: -24,
+                        bottom: -34,
+                        child: _DecorCircle(size: 100, opacity: 0.06),
+                      ),
+                      SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 52, 24, 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(meta.icon,
-                                    color: Colors.white, size: 20),
+                              // ── Order code, front and center ──────
+                              _OrderCodeChip(
+                                code: order.code,
+                                onTap: () => _copyOrderCode(order.code),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      meta.label,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: -0.5,
-                                      ),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      meta.message,
-                                      style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 12,
-                                          height: 1.4),
+                                    child: Icon(meta.icon,
+                                        color: Colors.white, size: 20),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          meta.label,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: -0.5,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          meta.message,
+                                          style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 12,
+                                              height: 1.4),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              ),
-                              // Queue badge
-                              Container(
-                                width: 70,
-                                height: 70,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(
-                                      color: Colors.white30, width: 1.5),
-                                ),
-                                alignment: Alignment.center,
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Text(
-                                      'QUEUE',
-                                      style: TextStyle(
-                                          color: Colors.white60,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 0.5),
+                                  ),
+                                  // Queue badge
+                                  Container(
+                                    width: 70,
+                                    height: 70,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(
+                                          color: Colors.white30, width: 1.5),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      order.queueNumber,
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.w900),
+                                    alignment: Alignment.center,
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Text(
+                                          'QUEUE',
+                                          style: TextStyle(
+                                              color: Colors.white60,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w800,
+                                              letterSpacing: 0.5),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          order.queueNumber,
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 22,
+                                              fontWeight: FontWeight.w900),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
                 collapseMode: CollapseMode.parallax,
@@ -491,9 +534,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ── Order Code Banner ─────────────────────
-                        _buildCodeBanner(order),
-                        const SizedBox(height: 24),
+                        // ── QR Code — moved to the very top, right ──
+                        // ── after the hero, since it's the thing ───
+                        // ── people need most urgently (pickup). ────
+                        if (order.code.isNotEmpty) ...[
+                          _buildSectionTitle('QR Code'),
+                          const SizedBox(height: 12),
+                          _buildQRCodeCard(order),
+                          const SizedBox(height: 24),
+                        ],
                         // ── Timeline ──────────────────────────────
                         _buildSectionTitle(
                           'Order Timeline',
@@ -525,47 +574,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildCodeBanner(Order order) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.primarySoft,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.2), width: 1),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.receipt_outlined,
-              color: AppColors.primary, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Order Code',
-                    style: TextStyle(color: AppColors.subText, fontSize: 11)),
-                Text(
-                  order.code,
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            _formatDateTime(order.createdAt),
-            style: const TextStyle(color: AppColors.subText, fontSize: 11),
-          ),
-        ],
       ),
     );
   }
@@ -722,15 +730,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       child: Column(
         children: [
           _InfoRow(
-            icon: Icons.qr_code_rounded,
-            label: 'Order Code',
-            value: order.code,
-            isFirst: true,
-          ),
-          _InfoRow(
             icon: Icons.access_time_rounded,
             label: 'Placed At',
             value: _formatDateTime(order.createdAt),
+            isFirst: true,
           ),
           _InfoRow(
             icon: Icons.payment_rounded,
@@ -747,6 +750,64 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
             isLast: true,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQRCodeCard(Order order) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            const Text(
+              'Scan for Counter Staff',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.subText,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border, width: 1),
+              ),
+              child: QrImageView(
+                data: order.code,
+                version: QrVersions.auto,
+                size: 200.0,
+                backgroundColor: Colors.white,
+                errorCorrectionLevel: QrErrorCorrectLevel.M,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Order Code: ${order.code}',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.text,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1035,6 +1096,68 @@ class _TimelineStep {
     required this.icon,
     required this.stepKey,
   });
+}
+
+// ─── Order Code Chip (hero, top of page) ─────────────────────────────────────
+class _OrderCodeChip extends StatelessWidget {
+  final String code;
+  final VoidCallback onTap;
+
+  const _OrderCodeChip({required this.code, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.28), width: 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.confirmation_number_rounded, color: Colors.white, size: 16),
+            const SizedBox(width: 8),
+            Text(
+              code,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(Icons.copy_rounded, color: Colors.white.withValues(alpha: 0.85), size: 14),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Decorative background circle for the hero gradient ─────────────────────
+class _DecorCircle extends StatelessWidget {
+  final double size;
+  final double opacity;
+
+  const _DecorCircle({required this.size, required this.opacity});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: opacity),
+        shape: BoxShape.circle,
+      ),
+    );
+  }
 }
 
 // ─── Timeline Item ────────────────────────────────────────────────────────────
