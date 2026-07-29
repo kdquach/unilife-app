@@ -114,8 +114,17 @@ class AppRoutes {
         final order = settings.arguments as Order;
         return _route(SepayPaymentScreen(order: order));
       case PaymentSuccessScreen.routeName:
-        final orderId = settings.arguments as String? ?? '';
-        return _route(PaymentSuccessScreen(orderId: orderId));
+        final arguments = settings.arguments;
+        String orderId = '';
+        String? orderCode;
+        if (arguments is Map) {
+          orderId = arguments['orderId'] as String? ?? '';
+          orderCode = arguments['orderCode'] as String?;
+        } else if (arguments is String) {
+          orderId = arguments;
+        }
+        return _route(
+            PaymentSuccessScreen(orderId: orderId, orderCode: orderCode));
       case OrderListScreen.routeName:
         final arguments = settings.arguments;
         String initialTab = 'Active';
