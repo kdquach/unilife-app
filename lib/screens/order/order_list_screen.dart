@@ -100,8 +100,6 @@ class _OrderListScreenState extends State<OrderListScreen> {
     });
   }
 
-  int _countForTab(String tab) => _computeFiltered(_allOrders, tab).length;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -182,14 +180,6 @@ class _OrderListScreenState extends State<OrderListScreen> {
                     letterSpacing: -0.5,
                   ),
                 ),
-                SizedBox(height: 2),
-                Text(
-                  'Track your active and past orders',
-                  style: TextStyle(
-                    color: AppColors.subText,
-                    fontSize: 13,
-                  ),
-                ),
               ],
             ),
           ),
@@ -202,61 +192,40 @@ class _OrderListScreenState extends State<OrderListScreen> {
   Widget _buildTabRow() {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
       child: Row(
         children: _tabs.map((tab) {
           final isSelected = tab == _selectedTab;
-          final count = _isLoading ? 0 : _countForTab(tab);
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
+          return Expanded(
+            child: InkWell(
               onTap: () => _onTabChanged(tab),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primary : Colors.white,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: isSelected ? AppColors.primary : AppColors.border,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
                       tab,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: isSelected ? Colors.white : AppColors.text,
+                        fontWeight:
+                            isSelected ? FontWeight.w800 : FontWeight.w600,
+                        color: isSelected ? AppColors.primary : AppColors.text,
                       ),
                     ),
-                    if (!_isLoading && count > 0) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? Colors.white.withValues(alpha: 0.3)
-                              : AppColors.muted,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          '$count',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color:
-                                isSelected ? Colors.white : AppColors.subText,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                  ),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: isSelected ? 44 : 0,
+                    height: 2,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ],
               ),
             ),
           );
@@ -376,46 +345,34 @@ class _OrderCard extends StatelessWidget {
     switch (status.toUpperCase()) {
       case 'COMPLETED':
         return _StatusConfig(
-          color: AppColors.success,
-          bgColor: const Color(0xFFDCFCE7),
+          color: AppColors.text,
           label: 'Completed',
-          icon: Icons.check_circle_rounded,
         );
       case 'CANCELLED':
         return _StatusConfig(
-          color: AppColors.error,
-          bgColor: const Color(0xFFFEE2E2),
+          color: AppColors.text,
           label: 'Cancelled',
-          icon: Icons.cancel_rounded,
         );
       case 'EXPIRED':
         return _StatusConfig(
-          color: AppColors.subText,
-          bgColor: AppColors.muted,
+          color: AppColors.text,
           label: 'Expired',
-          icon: Icons.timer_off_rounded,
         );
       case 'CONFIRMED':
         return _StatusConfig(
-          color: const Color(0xFF7C3AED),
-          bgColor: const Color(0xFFF5F3FF),
+          color: AppColors.text,
           label: 'In Kitchen',
-          icon: Icons.restaurant_rounded,
         );
       case 'PAID':
         return _StatusConfig(
-          color: const Color(0xFF0284C7),
-          bgColor: const Color(0xFFE0F2FE),
+          color: AppColors.text,
           label: 'Paid',
-          icon: Icons.qr_code_scanner_rounded,
         );
       case 'PENDING_PAYMENT':
       default:
         return _StatusConfig(
-          color: AppColors.warning,
-          bgColor: const Color(0xFFFEF3C7),
+          color: AppColors.text,
           label: 'Pending',
-          icon: Icons.schedule_rounded,
         );
     }
   }
@@ -465,18 +422,12 @@ class _OrderCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Container(
+                  Padding(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: config.bgColor,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
+                        const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(config.icon, size: 11, color: config.color),
-                        const SizedBox(width: 4),
                         Text(
                           config.label,
                           style: TextStyle(
@@ -583,14 +534,10 @@ class _OrderCard extends StatelessWidget {
 
 class _StatusConfig {
   final Color color;
-  final Color bgColor;
   final String label;
-  final IconData icon;
 
   _StatusConfig({
     required this.color,
-    required this.bgColor,
     required this.label,
-    required this.icon,
   });
 }

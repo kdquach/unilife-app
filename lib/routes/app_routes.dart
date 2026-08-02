@@ -56,11 +56,13 @@ class AppRoutes {
         String? categoryId;
         String? categoryName;
         bool todayOnly = false;
+        String? menuTab;
         if (arguments is Map) {
           initialIndex = arguments['tabIndex'] as int? ?? 0;
           categoryId = arguments['categoryId'] as String?;
           categoryName = arguments['categoryName'] as String?;
           todayOnly = arguments['todayOnly'] as bool? ?? false;
+          menuTab = arguments['menuTab'] as String?;
         }
         return _route(
           MainShell(
@@ -68,6 +70,7 @@ class AppRoutes {
             initialMenuCategoryId: categoryId,
             initialMenuCategoryName: categoryName,
             initialMenuTodayOnly: todayOnly,
+            initialMenuTab: menuTab,
           ),
         );
       case TodayMenuScreen.routeName:
@@ -120,7 +123,8 @@ class AppRoutes {
         } else if (arguments is String) {
           orderId = arguments;
         }
-        return _route(PaymentSuccessScreen(orderId: orderId, orderCode: orderCode));
+        return _route(
+            PaymentSuccessScreen(orderId: orderId, orderCode: orderCode));
       case OrderListScreen.routeName:
         final arguments = settings.arguments;
         String initialTab = 'Active';
@@ -141,7 +145,12 @@ class AppRoutes {
           NotificationDetailScreen(initialNotification: notification),
         );
       case RatingListScreen.routeName:
-        return _route(const RatingListScreen());
+        final arguments = settings.arguments;
+        return _route(
+          RatingListScreen(
+            args: arguments is RatingListArgs ? arguments : null,
+          ),
+        );
       case CreateRatingScreen.routeName:
         final arguments = settings.arguments;
         Order? order;

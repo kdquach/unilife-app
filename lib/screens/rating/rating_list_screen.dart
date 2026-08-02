@@ -14,7 +14,9 @@ import 'create_rating_screen.dart';
 class RatingListScreen extends StatefulWidget {
   static const String routeName = '/ratings';
 
-  const RatingListScreen({super.key});
+  final RatingListArgs? args;
+
+  const RatingListScreen({super.key, this.args});
 
   @override
   State<RatingListScreen> createState() => _RatingListScreenState();
@@ -25,9 +27,14 @@ class _RatingListScreenState extends State<RatingListScreen> {
 
   List<CustomerRating> _ratings = [];
   Set<String> _myRatingIds = {};
+  RatingPage? _ratingsPage;
   bool _isLoading = true;
+  bool _isLoadingMore = false;
   String? _error;
   String? _token;
+
+  bool get _isFoodReviewMode =>
+      widget.args?.foodId != null && widget.args!.foodId!.isNotEmpty;
 
   @override
   void initState() {
@@ -44,23 +51,42 @@ class _RatingListScreenState extends State<RatingListScreen> {
     try {
       final token = await AuthStorage.getToken();
       if (!mounted) return;
+      if (_isFoodReviewMode) {
+        final result = await _loadFoodRatingsPage(
+          token: token,
+          page: 1,
+          limit: 20,
+        );
+        if (!mounted) return;
+        setState(() {
+          _token = token;
+          _ratings = result.items;
+          _myRatingIds = {};
+          _ratingsPage = result;
+          _isLoading = false;
+        });
+        return;
+      }
+
       if (token == null || token.isEmpty) {
         setState(() {
           _token = null;
           _ratings = [];
           _myRatingIds = {};
+          _ratingsPage = null;
           _isLoading = false;
           _error = 'Please log in to view your ratings.';
         });
         return;
       }
 
-      final ratings = await _ratingService.getMyRatings(token: token);
+      final result = await _ratingService.getMyRatingsPage(token: token);
       if (!mounted) return;
       setState(() {
         _token = token;
-        _ratings = ratings;
-        _myRatingIds = ratings.map((rating) => rating.id).toSet();
+        _ratings = result.items;
+        _myRatingIds = result.items.map((rating) => rating.id).toSet();
+        _ratingsPage = result;
         _isLoading = false;
       });
     } on ApiException catch (error) {
@@ -70,10 +96,16 @@ class _RatingListScreenState extends State<RatingListScreen> {
         _token = error.statusCode == 401 ? null : _token;
         _ratings = [];
         _myRatingIds = {};
+        _ratingsPage = null;
         _isLoading = false;
-        _error = error.statusCode == 401
-            ? 'Please log in to view your ratings.'
-            : error.message;
+        if (_isFoodReviewMode &&
+            (error.statusCode == 401 || error.statusCode == 403)) {
+          _error = null;
+        } else {
+          _error = error.statusCode == 401
+              ? 'Please log in to view your ratings.'
+              : error.message;
+        }
       });
     } catch (error) {
       if (!mounted) return;
@@ -82,6 +114,69 @@ class _RatingListScreenState extends State<RatingListScreen> {
         _error = error.toString();
       });
     }
+  }
+
+  Future<void> _loadMoreRatings() async {
+    final currentPage = _ratingsPage;
+    if (currentPage == null || !currentPage.hasMore || _isLoadingMore) return;
+
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final nextPage = currentPage.page + 1;
+      final result = _isFoodReviewMode
+          ? await _loadFoodRatingsPage(
+              token: _token,
+              page: nextPage,
+              limit: currentPage.limit,
+            )
+          : await _ratingService.getMyRatingsPage(
+              token: _token,
+              page: nextPage,
+              limit: currentPage.limit,
+            );
+      if (!mounted) return;
+      setState(() {
+        _ratings = [..._ratings, ...result.items];
+        _ratingsPage = result;
+        if (!_isFoodReviewMode) {
+          _myRatingIds = _ratings.map((rating) => rating.id).toSet();
+        }
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_cleanError(error)),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Future<RatingPage> _loadFoodRatingsPage({
+    required String? token,
+    required int page,
+    required int limit,
+  }) async {
+    if (token == null || token.isEmpty) {
+      return RatingPage(
+        items: const [],
+        page: page,
+        limit: limit,
+        total: 0,
+        totalPages: 0,
+      );
+    }
+
+    return _ratingService.getMyRatingsPage(
+      token: token,
+      foodId: widget.args!.foodId,
+      page: page,
+      limit: limit,
+    );
   }
 
   Future<void> _openCreate() async {
@@ -172,19 +267,30 @@ class _RatingListScreenState extends State<RatingListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Ratings')),
+      appBar: AppBar(title: Text(widget.args?.title ?? 'Ratings')),
       body: RefreshIndicator(
         onRefresh: _loadRatings,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(24),
           children: [
-            AppButton(
-              label: 'Create New Rating',
-              secondary: true,
-              onPressed: _openCreate,
-            ),
-            const SizedBox(height: 20),
+            if (!_isFoodReviewMode) ...[
+              AppButton(
+                label: 'Create New Rating',
+                secondary: true,
+                onPressed: _openCreate,
+              ),
+              const SizedBox(height: 20),
+            ] else if (widget.args?.foodName != null) ...[
+              Text(
+                widget.args!.foodName!,
+                style: const TextStyle(
+                  color: AppColors.subText,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
             if (_isLoading)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 48),
@@ -192,18 +298,22 @@ class _RatingListScreenState extends State<RatingListScreen> {
               )
             else if (_error != null)
               _MessageState(
-                icon: Icons.lock_outline_rounded,
+                icon: _isFoodReviewMode
+                    ? Icons.rate_review_outlined
+                    : Icons.lock_outline_rounded,
                 message: _error!,
-                actionLabel: _token == null ? 'Login' : 'Retry',
-                onAction: _token == null
+                actionLabel:
+                    !_isFoodReviewMode && _token == null ? 'Login' : 'Retry',
+                onAction: !_isFoodReviewMode && _token == null
                     ? () => Navigator.pushNamed(context, LoginScreen.routeName)
                     : _loadRatings,
               )
             else if (_ratings.isEmpty)
               _MessageState(
                 icon: Icons.rate_review_outlined,
-                message:
-                    'You have not submitted any ratings yet. You can review completed orders.',
+                message: _isFoodReviewMode
+                    ? 'No comments yet'
+                    : 'You have not submitted any ratings yet. You can review completed orders.',
                 actionLabel: 'Refresh',
                 onAction: _loadRatings,
               )
@@ -213,17 +323,39 @@ class _RatingListScreenState extends State<RatingListScreen> {
                   padding: const EdgeInsets.only(bottom: 14),
                   child: _RatingCard(
                     rating: rating,
-                    canManage: _myRatingIds.contains(rating.id),
+                    canManage:
+                        !_isFoodReviewMode && _myRatingIds.contains(rating.id),
                     onEdit: () => _openEdit(rating),
                     onDelete: () => _deleteRating(rating),
                   ),
                 ),
               ),
+            if (!_isLoading && _ratingsPage?.hasMore == true) ...[
+              const SizedBox(height: 4),
+              AppButton(
+                label: 'Load More',
+                secondary: true,
+                isLoading: _isLoadingMore,
+                onPressed: _loadMoreRatings,
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+}
+
+class RatingListArgs {
+  final String? foodId;
+  final String? foodName;
+  final String? title;
+
+  const RatingListArgs({
+    this.foodId,
+    this.foodName,
+    this.title,
+  });
 }
 
 class _RatingCard extends StatelessWidget {

@@ -8,9 +8,9 @@ class SepaySuccessView extends StatefulWidget {
   final Order order;
   final String? warningMessage;
   final String? errorMessage;
-  
+
   const SepaySuccessView({
-    super.key, 
+    super.key,
     required this.order,
     this.warningMessage,
     this.errorMessage,
@@ -20,15 +20,18 @@ class SepaySuccessView extends StatefulWidget {
   State<SepaySuccessView> createState() => _SepaySuccessViewState();
 }
 
-class _SepaySuccessViewState extends State<SepaySuccessView> with SingleTickerProviderStateMixin {
+class _SepaySuccessViewState extends State<SepaySuccessView>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
-    _scaleAnimation = CurvedAnimation(parent: _controller, curve: Curves.elasticOut);
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 800));
+    _scaleAnimation =
+        CurvedAnimation(parent: _controller, curve: Curves.elasticOut);
     _controller.forward();
   }
 
@@ -49,7 +52,8 @@ class _SepaySuccessViewState extends State<SepaySuccessView> with SingleTickerPr
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
                 child: Column(
                   children: [
                     ScaleTransition(
@@ -74,7 +78,8 @@ class _SepaySuccessViewState extends State<SepaySuccessView> with SingleTickerPr
                               )
                             ],
                           ),
-                          child: const Icon(Icons.check_rounded, size: 48, color: Colors.white),
+                          child: const Icon(Icons.check_rounded,
+                              size: 48, color: Colors.white),
                         ),
                       ),
                     ),
@@ -88,15 +93,11 @@ class _SepaySuccessViewState extends State<SepaySuccessView> with SingleTickerPr
                         letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Hooray! Your order has been placed successfully.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-                    ),
-                    const SizedBox(height: 40),
-                    if (widget.errorMessage != null) _buildAlertBox(widget.errorMessage!, Colors.red),
-                    if (widget.warningMessage != null) _buildAlertBox(widget.warningMessage!, Colors.orange),
+                    const SizedBox(height: 32),
+                    if (widget.errorMessage != null)
+                      _buildAlertBox(widget.errorMessage!, Colors.red),
+                    if (widget.warningMessage != null)
+                      _buildAlertBox(widget.warningMessage!, Colors.orange),
                     _buildReceiptCard(),
                   ],
                 ),
@@ -122,15 +123,20 @@ class _SepaySuccessViewState extends State<SepaySuccessView> with SingleTickerPr
                     height: 56,
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false, arguments: {'tabIndex': 3});
+                        Navigator.pushNamedAndRemoveUntil(
+                            context, '/main', (route) => false,
+                            arguments: {'tabIndex': 3});
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
                       ),
-                      child: const Text('Track Order', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      child: const Text('Track Order',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold)),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -139,14 +145,18 @@ class _SepaySuccessViewState extends State<SepaySuccessView> with SingleTickerPr
                     height: 56,
                     child: OutlinedButton(
                       onPressed: () {
-                        Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
+                        Navigator.pushNamedAndRemoveUntil(
+                            context, '/main', (route) => false);
                       },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.text,
                         side: BorderSide(color: Colors.grey.shade300, width: 2),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
                       ),
-                      child: const Text('Back to Home', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      child: const Text('Back to Home',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
@@ -177,7 +187,8 @@ class _SepaySuccessViewState extends State<SepaySuccessView> with SingleTickerPr
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
-                _buildReceiptRow('Order Number', '#${widget.order.code}', isBold: true),
+                _buildReceiptRow('Order Number', '#${widget.order.code}',
+                    isBold: true),
                 const SizedBox(height: 16),
                 _buildReceiptRow('Payment Method', 'Bank Transfer (SePay)'),
                 const SizedBox(height: 16),
@@ -242,7 +253,8 @@ class _SepaySuccessViewState extends State<SepaySuccessView> with SingleTickerPr
                               width: dashWidth,
                               height: dashHeight,
                               child: DecoratedBox(
-                                decoration: BoxDecoration(color: Colors.grey.shade300),
+                                decoration:
+                                    BoxDecoration(color: Colors.grey.shade300),
                               ),
                             );
                           }),
@@ -287,11 +299,17 @@ class _SepaySuccessViewState extends State<SepaySuccessView> with SingleTickerPr
               children: [
                 const Text(
                   'Total Payment',
-                  style: TextStyle(fontSize: 16, color: AppColors.subText, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                      fontSize: 16,
+                      color: AppColors.subText,
+                      fontWeight: FontWeight.w600),
                 ),
                 Text(
                   CurrencyFormatter.vnd(widget.order.totalPrice),
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.primaryDark),
+                  style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.primaryDark),
                 ),
               ],
             ),
@@ -301,11 +319,13 @@ class _SepaySuccessViewState extends State<SepaySuccessView> with SingleTickerPr
     );
   }
 
-  Widget _buildReceiptRow(String label, String value, {bool isBold = false, Color? textColor}) {
+  Widget _buildReceiptRow(String label, String value,
+      {bool isBold = false, Color? textColor}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontSize: 15, color: AppColors.subText)),
+        Text(label,
+            style: const TextStyle(fontSize: 15, color: AppColors.subText)),
         Text(
           value,
           style: TextStyle(

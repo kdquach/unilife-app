@@ -80,7 +80,7 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
                   'Your order is waiting for payment. What would you like to do?',
                   style: TextStyle(fontSize: 15, color: Colors.black87),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
                 SizedBox(
                   width: double.infinity,
                   height: 52,
@@ -90,7 +90,7 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
+                          borderRadius: BorderRadius.circular(14)),
                       elevation: 0,
                     ),
                     child: const Text('Stay & Pay',
@@ -105,10 +105,11 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context, 'later'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.text,
-                      side: BorderSide(color: Colors.grey.shade300, width: 1.5),
+                      foregroundColor: AppColors.primary,
+                      side:
+                          const BorderSide(color: AppColors.primary, width: 1),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
+                          borderRadius: BorderRadius.circular(14)),
                     ),
                     child: const Text('Pay Later (in My Orders)',
                         style: TextStyle(
@@ -119,12 +120,13 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
                 SizedBox(
                   width: double.infinity,
                   height: 52,
-                  child: TextButton(
+                  child: OutlinedButton(
                     onPressed: () => Navigator.pop(context, 'cancel'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.red,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: AppColors.error, width: 1),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
+                          borderRadius: BorderRadius.circular(14)),
                     ),
                     child: const Text('Cancel Order & Edit Cart',
                         style: TextStyle(

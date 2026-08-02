@@ -18,7 +18,6 @@ import '../cart/checkout_screen.dart';
 const Color _kBlue = Color(0xFF2563EB);
 const Color _kBlueSoft = Color(0xFFEFF4FF);
 const Color _kGreen = Color(0xFF16A34A);
-const Color _kGreenSoft = Color(0xFFEAF9EE);
 const Color _kOrange = Color(0xFFF97316);
 const Color _kOrangeSoft = Color(0xFFFFF1E6);
 
@@ -45,7 +44,8 @@ class CartScreen extends ConsumerWidget {
           ? AppBar(
               title: const Text(
                 'My Cart',
-                style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1A1A1A)),
+                style: TextStyle(
+                    fontWeight: FontWeight.w800, color: Color(0xFF1A1A1A)),
               ),
               backgroundColor: Colors.white,
               surfaceTintColor: Colors.white,
@@ -56,7 +56,9 @@ class CartScreen extends ConsumerWidget {
       body: SafeArea(
         child: cartAsync.when(
           data: (cart) {
-            if (cart == null || cart.items.isEmpty) return _EmptyCart(showBackButton: showBackButton);
+            if (cart == null || cart.items.isEmpty) {
+              return _EmptyCart(showBackButton: showBackButton);
+            }
 
             final validItems = cart.validItems;
             final invalidItems = cart.invalidItems;
@@ -64,7 +66,7 @@ class CartScreen extends ConsumerWidget {
             final total = cart.totalPrice;
 
             return ListView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
               children: [
                 if (!showBackButton) ...[
                   Row(
@@ -80,18 +82,15 @@ class CartScreen extends ConsumerWidget {
                       const SizedBox(width: 10),
                       const Text(
                         'My Cart',
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A)),
+                        style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF1A1A1A)),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 16),
                 ],
-                const Padding(
-                  padding: EdgeInsets.only(left: 14),
-                  child: Text('Review your selected items', style: TextStyle(color: AppColors.subText)),
-                ),
-                const SizedBox(height: 18),
-
                 if (validItems.isNotEmpty) ...[
                   ...validItems.map((item) => Padding(
                         key: ValueKey(item.cartItemId),
@@ -100,7 +99,6 @@ class CartScreen extends ConsumerWidget {
                       )),
                   const SizedBox(height: 6),
                 ],
-
                 if (invalidItems.isNotEmpty) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(4, 0, 0, 10),
@@ -109,12 +107,16 @@ class CartScreen extends ConsumerWidget {
                         Container(
                           width: 6,
                           height: 6,
-                          decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                          decoration: const BoxDecoration(
+                              color: Colors.red, shape: BoxShape.circle),
                         ),
                         const SizedBox(width: 8),
                         const Text(
                           'Unavailable Items',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.red),
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.red),
                         ),
                       ],
                     ),
@@ -126,37 +128,44 @@ class CartScreen extends ConsumerWidget {
                       )),
                   const SizedBox(height: 6),
                 ],
-
-                const SizedBox(height: 6),
+                const SizedBox(height: 2),
                 _SummaryCard(totalItems: cart.totalItems, total: total),
                 const SizedBox(height: 20),
                 _GradientButton(
                   label: 'Checkout',
                   gradient: _kCtaGradient,
                   onPressed: validItems.isNotEmpty
-                      ? () => Navigator.pushNamed(context, CheckoutScreen.routeName)
+                      ? () =>
+                          Navigator.pushNamed(context, CheckoutScreen.routeName)
                       : null,
                 ),
               ],
             );
           },
-          loading: () => const Center(child: CircularProgressIndicator(color: _kBlue)),
+          loading: () =>
+              const Center(child: CircularProgressIndicator(color: _kBlue)),
           error: (err, stack) => Center(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.redAccent),
+                  const Icon(Icons.error_outline,
+                      size: 64, color: Colors.redAccent),
                   const SizedBox(height: 16),
-                  const Text('Failed to load cart', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Text('Failed to load cart',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  Text(err.toString(), textAlign: TextAlign.center, style: const TextStyle(color: AppColors.subText)),
+                  Text(err.toString(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: AppColors.subText)),
                   const SizedBox(height: 24),
                   _GradientButton(
                     label: 'Retry',
                     gradient: _kCtaGradient,
-                    onPressed: () => ref.read(cartProvider.notifier).refreshCart(),
+                    onPressed: () =>
+                        ref.read(cartProvider.notifier).refreshCart(),
                   ),
                 ],
               ),
@@ -264,7 +273,8 @@ class _SummaryCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const Text('Order summary', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+              const Text('Order Summary',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
             ],
           ),
           const SizedBox(height: 18),
@@ -273,18 +283,23 @@ class _SummaryCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Total Items',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.subText),
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.subText),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: _kBlueSoft,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   totalItems.toString(),
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _kBlue),
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w800, color: _kBlue),
                 ),
               ),
             ],
@@ -292,23 +307,27 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: 16),
           const Divider(height: 1, color: Color(0xFFF0F0F0)),
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: _kGreenSoft,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Text('Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Total',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF171717),
+                  ),
                 ),
-                Text(
-                  CurrencyFormatter.vnd(total),
-                  style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: _kGreen),
+              ),
+              Text(
+                CurrencyFormatter.vnd(total),
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: _kOrange,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -381,10 +400,13 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
       return;
     }
 
-    if (widget.item.maxServing != null && widget.item.maxServing! > 0 && newQuantity > widget.item.maxServing!) {
+    if (widget.item.maxServing != null &&
+        widget.item.maxServing! > 0 &&
+        newQuantity > widget.item.maxServing!) {
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('You can only buy up to ${widget.item.maxServing} portions'),
+        content:
+            Text('You can only buy up to ${widget.item.maxServing} portions'),
         backgroundColor: _kOrange,
       ));
       return;
@@ -410,14 +432,18 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
       if (!mounted) return;
       final messenger = ScaffoldMessenger.of(context);
       try {
-        await ref.read(cartProvider.notifier).removeItem(widget.item.cartItemId);
+        await ref
+            .read(cartProvider.notifier)
+            .removeItem(widget.item.cartItemId);
       } catch (e) {
         if (mounted) {
           setState(() {
             _localQuantity = widget.item.quantity;
           });
         }
-        final errorMessage = e is ApiException ? e.message : e.toString().replaceAll('Exception: ', '');
+        final errorMessage = e is ApiException
+            ? e.message
+            : e.toString().replaceAll('Exception: ', '');
         messenger.showSnackBar(SnackBar(
           content: Text(errorMessage),
           backgroundColor: Colors.red,
@@ -435,14 +461,18 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
       if (!mounted) return;
       setState(() => _isLoading = true);
       try {
-        await ref.read(cartProvider.notifier).updateItemQuantity(widget.item.cartItemId, _localQuantity);
+        await ref
+            .read(cartProvider.notifier)
+            .updateItemQuantity(widget.item.cartItemId, _localQuantity);
       } catch (e) {
         if (mounted) {
           // Revert optimistic update on failure
           setState(() {
             _localQuantity = widget.item.quantity;
           });
-          final errorMessage = e is ApiException ? e.message : e.toString().replaceAll('Exception: ', '');
+          final errorMessage = e is ApiException
+              ? e.message
+              : e.toString().replaceAll('Exception: ', '');
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(errorMessage),
             backgroundColor: Colors.red,
@@ -462,7 +492,8 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Enter Quantity', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          title: const Text('Enter Quantity',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           content: TextField(
             controller: controller,
             keyboardType: TextInputType.number,
@@ -479,14 +510,17 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
               ),
               labelText: 'Quantity',
               labelStyle: const TextStyle(color: _kBlue),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
           ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: AppColors.subText)),
+              child: const Text('Cancel',
+                  style: TextStyle(color: AppColors.subText)),
             ),
             ElevatedButton(
               onPressed: () {
@@ -505,7 +539,8 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: _kBlue,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
               child: const Text('Confirm'),
             ),
@@ -524,10 +559,7 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
     final isInvalid = widget.isInvalid;
     final food = item.food;
     final String title = food?.name ?? 'Unknown Item';
-    final bool isMenuFood = food?.isMenuFood ?? false;
-    final String type = isMenuFood ? 'Menu Food' : 'Always Available';
-    final Color typeColor = isMenuFood ? _kBlue : _kGreen;
-    final Color typeSoft = isMenuFood ? _kBlueSoft : _kGreenSoft;
+    final imageUrl = food?.imageUrl;
 
     return Dismissible(
       key: ValueKey('dismiss_${item.cartItemId}'),
@@ -547,14 +579,20 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
           context: context,
           builder: (context) => _ConfirmDialog(
             title: 'Remove Item',
-            message: 'Are you sure you want to remove this item from your cart?',
+            message:
+                'Are you sure you want to remove this item from your cart?',
           ),
         );
       },
       onDismissed: (direction) {
         final messenger = ScaffoldMessenger.of(context);
-        ref.read(cartProvider.notifier).removeItem(item.cartItemId).catchError((e) {
-          final errorMessage = e is ApiException ? e.message : e.toString().replaceAll('Exception: ', '');
+        ref
+            .read(cartProvider.notifier)
+            .removeItem(item.cartItemId)
+            .catchError((e) {
+          final errorMessage = e is ApiException
+              ? e.message
+              : e.toString().replaceAll('Exception: ', '');
           messenger.showSnackBar(SnackBar(
             content: Text(errorMessage),
             backgroundColor: Colors.red,
@@ -562,22 +600,27 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
         });
       },
       child: AppCard(
-        onTap: food != null ? () => Navigator.pushNamed(context, '/food-detail', arguments: food) : null,
+        onTap: food != null
+            ? () =>
+                Navigator.pushNamed(context, '/food-detail', arguments: food)
+            : null,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (food?.imageUrl != null) ...[
+            if (imageUrl != null) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(14),
                 child: Image.network(
-                  _resolveImageUrl(food!.imageUrl) ?? food!.imageUrl!,
+                  _resolveImageUrl(imageUrl) ?? imageUrl,
                   width: 80,
                   height: 80,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
                     width: 80,
                     height: 80,
-                    decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(14)),
+                    decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(14)),
                     child: const Icon(Icons.fastfood, color: Colors.grey),
                   ),
                 ),
@@ -597,22 +640,18 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
                       decoration: isInvalid ? TextDecoration.lineThrough : null,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  if (isInvalid && item.reason != null)
-                    Text(item.reason!, style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w600))
-                  else
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: typeSoft,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        type,
-                        style: TextStyle(color: typeColor, fontSize: 11, fontWeight: FontWeight.w800),
+                  if (isInvalid && item.reason != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      item.reason!,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  const SizedBox(height: 12),
+                  ],
+                  const SizedBox(height: 8),
                   if (!isInvalid)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -621,7 +660,10 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
                         Expanded(
                           child: Text(
                             CurrencyFormatter.vnd(item.subtotal),
-                            style: const TextStyle(color: _kGreen, fontSize: 16, fontWeight: FontWeight.w900),
+                            style: const TextStyle(
+                                color: _kOrange,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -636,37 +678,51 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               InkWell(
-                                onTap: () => _updateQuantity(_localQuantity - 1),
-                                borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+                                onTap: () =>
+                                    _updateQuantity(_localQuantity - 1),
+                                borderRadius: const BorderRadius.horizontal(
+                                    left: Radius.circular(12)),
                                 child: const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                                  child: Icon(Icons.remove, size: 18, color: _kOrange),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 7),
+                                  child: Icon(Icons.remove,
+                                      size: 18, color: _kOrange),
                                 ),
                               ),
                               InkWell(
                                 onTap: _showQuantityDialog,
                                 child: Container(
-                                  constraints: const BoxConstraints(minWidth: 30),
+                                  constraints:
+                                      const BoxConstraints(minWidth: 30),
                                   alignment: Alignment.center,
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 4, vertical: 7),
                                   child: _isLoading
                                       ? const SizedBox(
                                           width: 14,
                                           height: 14,
-                                          child: CircularProgressIndicator(strokeWidth: 2, color: _kOrange),
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2, color: _kOrange),
                                         )
                                       : Text(
                                           '$_localQuantity',
-                                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF7C2D12)),
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 14,
+                                              color: Color(0xFF7C2D12)),
                                         ),
                                 ),
                               ),
                               InkWell(
-                                onTap: () => _updateQuantity(_localQuantity + 1),
-                                borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+                                onTap: () =>
+                                    _updateQuantity(_localQuantity + 1),
+                                borderRadius: const BorderRadius.horizontal(
+                                    right: Radius.circular(12)),
                                 child: const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                                  child: Icon(Icons.add, size: 18, color: _kOrange),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 7),
+                                  child: Icon(Icons.add,
+                                      size: 18, color: _kOrange),
                                 ),
                               ),
                             ],
@@ -680,10 +736,14 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
                       children: [
                         Text(
                           CurrencyFormatter.vnd(item.subtotal),
-                          style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w900, decoration: TextDecoration.lineThrough),
+                          style: const TextStyle(
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w900,
+                              decoration: TextDecoration.lineThrough),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 24),
+                          icon: const Icon(Icons.delete_outline,
+                              color: Colors.red, size: 24),
                           onPressed: () => _updateQuantity(0),
                         ),
                       ],
@@ -717,11 +777,14 @@ class _ConfirmDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('No', style: TextStyle(color: AppColors.subText, fontWeight: FontWeight.w700)),
+          child: const Text('No',
+              style: TextStyle(
+                  color: AppColors.subText, fontWeight: FontWeight.w700)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, true),
-          child: const Text('Yes', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w800)),
+          child: const Text('Yes',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w800)),
         ),
       ],
     );
@@ -755,10 +818,12 @@ class _EmptyCart extends StatelessWidget {
                 ],
               ),
               alignment: Alignment.center,
-              child: const Icon(Icons.shopping_cart_outlined, size: 60, color: Colors.white),
+              child: const Icon(Icons.shopping_cart_outlined,
+                  size: 60, color: Colors.white),
             ),
             const SizedBox(height: 22),
-            const Text('Your cart is empty', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+            const Text('Your cart is empty',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
             Text(
               'Browse today menu and add your favorite meals.',

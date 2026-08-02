@@ -12,43 +12,30 @@ import '../../models/food_category.dart';
 import '../../services/api_client.dart';
 import '../../services/food_service.dart';
 import '../../states/cart_provider.dart';
-import '../../widgets/food_cards.dart';
 import '../../widgets/food_image_placeholder.dart';
 import '../food/food_detail_screen.dart';
 import '../menu/always_available_screen.dart';
 import '../menu/today_menu_screen.dart';
 import 'main_shell.dart';
 
-// ---------------------------------------------------------------------------
-// Small color helpers (kept local to this file). Used to derive gradient
-// shades from AppColors.primary without touching app_colors.dart.
-// ---------------------------------------------------------------------------
-Color _darken(Color color, [double amount = .15]) {
-  final hsl = HSLColor.fromColor(color);
-  return hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0)).toColor();
-}
+const Color _homeHeaderColor = Color(0xFFF04422);
+const Color _homeBackground = Color(0xFFF7F7F7);
+const Color _homeSurface = Color(0xFFFFFFFF);
+const Color _homeText = Color(0xFF181818);
+const Color _homeSubText = Color(0xFF737373);
+const Color _homeBorder = Color(0xFFE7E7E7);
 
-LinearGradient _brandGradient(
-  Color base, {
-  double darkenAmount = .16,
-  AlignmentGeometry begin = Alignment.topLeft,
-  AlignmentGeometry end = Alignment.bottomRight,
-}) {
-  return LinearGradient(
-    begin: begin,
-    end: end,
-    colors: [base, _darken(base, darkenAmount)],
-  );
+String? _resolveHomeFoodImageUrl(Food food) {
+  final imageUrl = food.imageUrl;
+  if (imageUrl == null || imageUrl.isEmpty) return null;
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    return imageUrl;
+  }
+  final apiRoot = Uri.parse(ApiClient.baseUrl);
+  final origin = '${apiRoot.scheme}://${apiRoot.authority}';
+  final normalizedPath = imageUrl.startsWith('/') ? imageUrl : '/$imageUrl';
+  return '$origin$normalizedPath';
 }
-
-const List<List<Color>> _accentGradients = [
-  [Color(0xFFFF7A59), Color(0xFFFF3D71)],
-  [Color(0xFF36D1DC), Color(0xFF5B86E5)],
-  [Color(0xFFF7971E), Color(0xFFFFD200)],
-  [Color(0xFF9D50BB), Color(0xFF6E48AA)],
-  [Color(0xFF11998E), Color(0xFF38EF7D)],
-  [Color(0xFFFF5F6D), Color(0xFFFFC371)],
-];
 
 class HomeScreen extends ConsumerStatefulWidget {
   final int unreadNotificationCount;
@@ -292,8 +279,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  void _focusSearch() {
-    FocusScope.of(context).requestFocus(_searchFocusNode);
+  void _openMenuTab(String tab) {
+    Navigator.pushNamed(
+      context,
+      MainShell.routeName,
+      arguments: {
+        'tabIndex': 1,
+        'menuTab': tab,
+      },
+    );
   }
 
   void _scrollToCategories() {
@@ -328,17 +322,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: _homeBackground,
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
-    final menuFood = _menuFoods.isNotEmpty ? _menuFoods.first : null;
-    final moreMenuFoods = _menuFoods.length > 1 ? _menuFoods.sublist(1) : <Food>[];
     final regularFoods = _regularFoods;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: _homeBackground,
       body: SafeArea(
         bottom: false,
         child: ListView(
@@ -365,17 +357,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               )
             else ...[
               const SizedBox(height: 20),
-              _QuickActionsRow(
-                onTodayMenu: () =>
-                    Navigator.pushNamed(context, TodayMenuScreen.routeName),
-                onAlwaysAvailable: () => Navigator.pushNamed(
-                  context,
-                  AlwaysAvailableScreen.routeName,
-                ),
-                onCategories: _scrollToCategories,
-                onQuickSearch: _focusSearch,
-              ),
-              const SizedBox(height: 20),
               const _PromoCarousel(),
               _SectionHeader(
                 key: _categoriesKey,
@@ -390,60 +371,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _SectionHeader(
                 title: 'Today\'s Menu',
                 action: 'See more',
-                onAction: () =>
-                    Navigator.pushNamed(context, TodayMenuScreen.routeName),
+                onAction: () => _openMenuTab('today'),
               ),
-              if (menuFood != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: MenuFoodCard(
-                    food: menuFood,
-                    onTap: () => _openDetail(context, menuFood),
-                    onAdd: menuFood.canAddToCart
-                        ? () => _add(context, ref, menuFood)
-                        : null,
-                  ),
-                ),
-              if (moreMenuFoods.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                _HorizontalFoodList(
-                  foods: moreMenuFoods,
-                  onFoodTap: (food) => _openDetail(context, food),
-                  onAdd: (food) => _add(context, ref, food),
-                ),
-              ],
+              _HomeFoodCardList(
+                foods: _menuFoods,
+                emptyState: const _TodayMenuEmptyState(),
+                onFoodTap: (food) => _openDetail(context, food),
+                onAdd: (food) => _add(context, ref, food),
+              ),
               _SectionHeader(
                 title: 'Always Available',
                 action: 'See more',
-                onAction: () => Navigator.pushNamed(
-                  context,
-                  AlwaysAvailableScreen.routeName,
-                ),
+                onAction: () => _openMenuTab('always'),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: regularFoods.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    mainAxisExtent: 192,
-                  ),
-                  itemBuilder: (_, i) {
-                    final food = regularFoods[i];
-                    return RegularFoodCard(
-                      food: food,
-                      onTap: () => _openDetail(context, food),
-                      onAdd: food.canAddToCart
-                          ? () => _add(context, ref, food)
-                          : null,
-                    );
-                  },
+              _HomeFoodCardList(
+                foods: regularFoods,
+                emptyState: const _CompactFoodEmptyState(
+                  icon: Icons.storefront_rounded,
+                  title: 'No foods are currently available',
+                  message: 'Please check again later.',
                 ),
+                showPopularLabel: true,
+                onFoodTap: (food) => _openDetail(context, food),
+                onAdd: (food) => _add(context, ref, food),
               ),
+              const SizedBox(height: 16),
             ],
           ],
         ),
@@ -453,8 +405,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Top bar — gradient header now hosts the search field directly (in the
-// spot the "Good morning" greeting used to occupy), ShopeeFood-style.
+// Compact search header. Greeting/user identity stays hidden on Home.
 // ---------------------------------------------------------------------------
 class _TopBar extends StatelessWidget {
   final TextEditingController searchController;
@@ -482,139 +433,90 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary, _darken(AppColors.primary, .18)],
-        ),
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.28),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      color: _homeHeaderColor,
+      child: Row(
         children: [
-          // Compact profile row — greeting is now secondary, small.
-          Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
-                  border: Border.all(color: Colors.white, width: 1.5),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  'NA',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
+          Expanded(
+            child: Container(
+              height: 50,
+              padding: const EdgeInsets.only(left: 14, right: 4),
+              decoration: BoxDecoration(
+                color: _homeSurface,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.search_rounded,
+                    size: 22,
+                    color: _homeHeaderColor,
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Good morning, Nguyen Van A',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              _NotificationBell(
-                unreadCount: unreadNotificationCount,
-                onTap: onNotificationTap,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // Search bar — the prominent element in the header now.
-          Container(
-            height: 48,
-            padding: const EdgeInsets.only(left: 16, right: 6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  blurRadius: 14,
-                  offset: const Offset(0, 6),
-                  color: Colors.black.withValues(alpha: 0.12),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.search, size: 22, color: AppColors.primary.withValues(alpha: 0.55)),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: searchController,
-                    focusNode: searchFocusNode,
-                    onChanged: onSearchChanged,
-                    textInputAction: TextInputAction.search,
-                    decoration: const InputDecoration(
-                      hintText: 'Search food, drinks, snacks...',
-                      hintStyle: TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(vertical: 12),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: searchController,
+                      focusNode: searchFocusNode,
+                      onChanged: onSearchChanged,
+                      textInputAction: TextInputAction.search,
+                      cursorColor: _homeHeaderColor,
+                      decoration: const InputDecoration(
+                        hintText: 'Search food, drinks, snacks...',
+                        hintStyle: TextStyle(
+                          color: Color(0xFF9E9E9E),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(vertical: 13),
+                      ),
                     ),
                   ),
-                ),
-                if (query.isNotEmpty)
+                  if (query.isNotEmpty)
+                    IconButton(
+                      tooltip: 'Clear',
+                      onPressed: onClear,
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: Color(0xFF9E9E9E),
+                      ),
+                    ),
                   IconButton(
-                    tooltip: 'Clear',
-                    onPressed: onClear,
-                    icon: const Icon(Icons.close, size: 18, color: Color(0xFF9E9E9E)),
-                  ),
-                InkWell(
-                  onTap: onFilterTap,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      gradient: hasActiveFilters ? _brandGradient(AppColors.primary) : null,
-                      color: hasActiveFilters ? null : const Color(0xFFF5F5F5),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    alignment: Alignment.center,
-                    child: Stack(
+                    tooltip: 'Filter',
+                    onPressed: onFilterTap,
+                    icon: Stack(
                       clipBehavior: Clip.none,
                       children: [
                         Icon(
                           Icons.tune_rounded,
-                          size: 17,
-                          color: hasActiveFilters ? Colors.white : AppColors.primary,
+                          size: 20,
+                          color: hasActiveFilters
+                              ? _homeHeaderColor
+                              : _homeSubText,
                         ),
                         if (hasActiveFilters)
                           const Positioned(
-                            top: -3,
-                            right: -3,
-                            child: CircleAvatar(radius: 4, backgroundColor: Color(0xFFFFD200)),
+                            top: -4,
+                            right: -4,
+                            child: CircleAvatar(
+                              radius: 4,
+                              backgroundColor: _homeHeaderColor,
+                            ),
                           ),
                       ],
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
+          ),
+          const SizedBox(width: 10),
+          _NotificationBell(
+            unreadCount: unreadNotificationCount,
+            onTap: onNotificationTap,
           ),
         ],
       ),
@@ -635,28 +537,33 @@ class _NotificationBell extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(15),
       child: Container(
-        width: 30,
-        height: 30,
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: 0.18),
+          color: Colors.white.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
         ),
         alignment: Alignment.center,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            const Icon(Icons.notifications_outlined, size: 16, color: Colors.white),
+            const Icon(
+              Icons.notifications_none_rounded,
+              size: 21,
+              color: Colors.white,
+            ),
             if (hasUnread)
               Positioned(
-                top: -4,
-                right: -6,
+                top: -7,
+                right: -8,
                 child: Container(
-                  constraints: const BoxConstraints(minWidth: 14),
-                  height: 14,
+                  constraints: const BoxConstraints(minWidth: 15),
+                  height: 15,
                   padding: const EdgeInsets.symmetric(horizontal: 3),
                   decoration: const BoxDecoration(
-                    color: Color(0xFFFFD200),
-                    borderRadius: BorderRadius.all(Radius.circular(7)),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
                   ),
                   alignment: Alignment.center,
                   child: Text(
@@ -664,7 +571,7 @@ class _NotificationBell extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 8,
                       fontWeight: FontWeight.w900,
-                      color: Color(0xFF1A1A1A),
+                      color: _homeHeaderColor,
                       height: 1,
                     ),
                   ),
@@ -672,117 +579,6 @@ class _NotificationBell extends StatelessWidget {
               ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Quick actions — horizontal shortcuts to the sections/screens that already
-// exist in the app (no new routes, no invented data).
-// ---------------------------------------------------------------------------
-class _QuickActionsRow extends StatelessWidget {
-  final VoidCallback onTodayMenu;
-  final VoidCallback onAlwaysAvailable;
-  final VoidCallback onCategories;
-  final VoidCallback onQuickSearch;
-
-  const _QuickActionsRow({
-    required this.onTodayMenu,
-    required this.onAlwaysAvailable,
-    required this.onCategories,
-    required this.onQuickSearch,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      (
-        icon: Icons.today_rounded,
-        label: 'Today\'s\nMenu',
-        gradient: _accentGradients[0],
-        onTap: onTodayMenu,
-      ),
-      (
-        icon: Icons.storefront_rounded,
-        label: 'Always\nAvailable',
-        gradient: _accentGradients[1],
-        onTap: onAlwaysAvailable,
-      ),
-      (
-        icon: Icons.grid_view_rounded,
-        label: 'Categories',
-        gradient: _accentGradients[2],
-        onTap: onCategories,
-      ),
-      (
-        icon: Icons.flash_on_rounded,
-        label: 'Quick\nSearch',
-        gradient: _accentGradients[3],
-        onTap: onQuickSearch,
-      ),
-    ];
-
-    return SizedBox(
-      height: 90,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (_, i) {
-          final item = items[i];
-          return InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: item.onTap,
-            child: Container(
-              width: 78,
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.06),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: item.gradient,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(item.icon, size: 20, color: Colors.white),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    item.label,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    style: const TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF6B6B6B),
-                      height: 1.15,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
       ),
     );
   }
@@ -827,7 +623,8 @@ class _PromoCarouselState extends State<_PromoCarousel> {
       cta: 'Explore',
       icon: Icons.bolt_rounded,
       imagePath: AppAssets.goicuon,
-      onTap: () => Navigator.pushNamed(context, AlwaysAvailableScreen.routeName),
+      onTap: () =>
+          Navigator.pushNamed(context, AlwaysAvailableScreen.routeName),
     ),
   ];
 
@@ -857,7 +654,7 @@ class _PromoCarouselState extends State<_PromoCarousel> {
     return Column(
       children: [
         SizedBox(
-          height: 130,
+          height: 118,
           child: PageView.builder(
             controller: _pageController,
             itemCount: _slides.length,
@@ -868,7 +665,7 @@ class _PromoCarouselState extends State<_PromoCarousel> {
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(_slides.length, (i) {
@@ -921,22 +718,18 @@ class _PromoBannerCard extends StatelessWidget {
 
     return InkWell(
       onTap: slide.onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(14),
       splashColor: Colors.white.withValues(alpha: 0.15),
       highlightColor: Colors.white.withValues(alpha: 0.08),
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.primary, AppColors.primaryDark],
-          ),
-          borderRadius: BorderRadius.circular(18),
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.15),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -966,17 +759,8 @@ class _PromoBannerCard extends StatelessWidget {
               ),
             if (hasImage)
               Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.4),
-                        Colors.black.withValues(alpha: 0.1),
-                      ],
-                    ),
-                  ),
+                child: ColoredBox(
+                  color: Colors.black.withValues(alpha: 0.28),
                 ),
               )
             else
@@ -990,7 +774,7 @@ class _PromoBannerCard extends StatelessWidget {
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1014,7 +798,8 @@ class _PromoBannerCard extends StatelessWidget {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
@@ -1031,7 +816,8 @@ class _PromoBannerCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.primary),
+                        Icon(Icons.arrow_forward_rounded,
+                            size: 14, color: AppColors.primary),
                       ],
                     ),
                   ),
@@ -1045,25 +831,32 @@ class _PromoBannerCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Horizontal food list — lets users browse more items than a single hero
-// card, without needing new backend fields (reuses Food model as-is).
-// ---------------------------------------------------------------------------
-class _HorizontalFoodList extends StatelessWidget {
+class _HomeFoodCardList extends StatelessWidget {
   final List<Food> foods;
+  final Widget emptyState;
+  final bool showPopularLabel;
   final ValueChanged<Food> onFoodTap;
   final ValueChanged<Food> onAdd;
 
-  const _HorizontalFoodList({
+  const _HomeFoodCardList({
     required this.foods,
+    required this.emptyState,
     required this.onFoodTap,
     required this.onAdd,
+    this.showPopularLabel = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (foods.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: emptyState,
+      );
+    }
+
     return SizedBox(
-      height: 232,
+      height: 235,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1071,15 +864,325 @@ class _HorizontalFoodList extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (_, i) {
           final food = foods[i];
-          return SizedBox(
-            width: 158,
-            child: RegularFoodCard(
-              food: food,
-              onTap: () => onFoodTap(food),
-              onAdd: food.canAddToCart ? () => onAdd(food) : null,
-            ),
+          return _HomeFoodCard(
+            food: food,
+            showPopularLabel: showPopularLabel,
+            onTap: () => onFoodTap(food),
+            onAdd: food.canAddToCart ? () => onAdd(food) : null,
           );
         },
+      ),
+    );
+  }
+}
+
+class _HomeFoodCard extends StatelessWidget {
+  final Food food;
+  final bool showPopularLabel;
+  final VoidCallback onTap;
+  final VoidCallback? onAdd;
+
+  const _HomeFoodCard({
+    required this.food,
+    required this.showPopularLabel,
+    required this.onTap,
+    required this.onAdd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final canAdd = food.canAddToCart;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: 160,
+        decoration: BoxDecoration(
+          color: _homeSurface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _homeBorder),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.025),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _HomeFoodImage(food: food),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (showPopularLabel) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF1EC),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'Popular now',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: _homeHeaderColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+                    Text(
+                      food.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _homeText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      CurrencyFormatter.vnd(food.price),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _homeHeaderColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const Spacer(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _FoodStatusBadge(food: food, canAdd: canAdd),
+                        ),
+                        const SizedBox(width: 8),
+                        _AddFoodButton(onAdd: onAdd, enabled: canAdd),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeFoodImage extends StatelessWidget {
+  final Food food;
+
+  const _HomeFoodImage({required this.food});
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = _resolveHomeFoodImageUrl(food);
+
+    return SizedBox(
+      height: 105,
+      width: double.infinity,
+      child: imageUrl == null
+          ? const _FoodImageFallback()
+          : Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const _FoodImageFallback(),
+            ),
+    );
+  }
+}
+
+class _FoodImageFallback extends StatelessWidget {
+  const _FoodImageFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFFF3F4F6),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.restaurant_menu_rounded,
+        color: Color(0xFF9CA3AF),
+        size: 34,
+      ),
+    );
+  }
+}
+
+class _FoodStatusBadge extends StatelessWidget {
+  final Food food;
+  final bool canAdd;
+
+  const _FoodStatusBadge({required this.food, required this.canAdd});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = canAdd ? AppColors.success : const Color(0xFFDC2626);
+
+    return Container(
+      height: 26,
+      padding: const EdgeInsets.symmetric(horizontal: 7),
+      decoration: BoxDecoration(
+        color: canAdd ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.50)),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        food.statusLabel,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _AddFoodButton extends StatelessWidget {
+  final VoidCallback? onAdd;
+  final bool enabled;
+
+  const _AddFoodButton({required this.onAdd, required this.enabled});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: enabled ? onAdd : null,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: enabled ? _homeHeaderColor : AppColors.border,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        alignment: Alignment.center,
+        child: Icon(
+          enabled ? Icons.add_rounded : Icons.remove_rounded,
+          size: 18,
+          color: enabled ? Colors.white : AppColors.subText,
+        ),
+      ),
+    );
+  }
+}
+
+class _TodayMenuEmptyState extends StatelessWidget {
+  const _TodayMenuEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 72),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      decoration: BoxDecoration(
+        color: _homeSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _homeBorder),
+      ),
+      alignment: Alignment.centerLeft,
+      child: const Text(
+        'No menu scheduled today',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: _homeText,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactFoodEmptyState extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+
+  const _CompactFoodEmptyState({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 118),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _homeSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _homeBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, color: _homeHeaderColor, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _homeText,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _homeSubText,
+                    fontSize: 12,
+                    height: 1.25,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1213,7 +1316,10 @@ class _SearchFoodTile extends StatelessWidget {
                     food.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.text),
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.text),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -1404,8 +1510,7 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         decoration: BoxDecoration(
-          gradient: selected ? _brandGradient(AppColors.primary) : null,
-          color: selected ? null : const Color(0xFFF5F5F7),
+          color: selected ? _homeHeaderColor : const Color(0xFFF5F5F7),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
@@ -1453,7 +1558,8 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                   const Expanded(
                     child: Text(
                       'Filter search',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
                     ),
                   ),
                   IconButton(
@@ -1463,7 +1569,8 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                 ],
               ),
               const SizedBox(height: 14),
-              const Text('Category', style: TextStyle(fontWeight: FontWeight.w900)),
+              const Text('Category',
+                  style: TextStyle(fontWeight: FontWeight.w900)),
               const SizedBox(height: 10),
               if (widget.isLoadingCategories)
                 ClipRRect(
@@ -1496,7 +1603,8 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                   ],
                 ),
               const SizedBox(height: 22),
-              const Text('Price', style: TextStyle(fontWeight: FontWeight.w900)),
+              const Text('Price',
+                  style: TextStyle(fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
               _PriceErrorMessage(message: _priceError),
               if (_hasPriceRange) ...[
@@ -1507,7 +1615,9 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                         controller: _minPriceController,
                         keyboardType: TextInputType.number,
                         onChanged: (_) => _clearPriceError(),
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly
+                        ],
                         decoration: InputDecoration(
                           labelText: 'Min price',
                           suffixText: 'VND',
@@ -1526,7 +1636,9 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                         controller: _maxPriceController,
                         keyboardType: TextInputType.number,
                         onChanged: (_) => _clearPriceError(),
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly
+                        ],
                         decoration: InputDecoration(
                           labelText: 'Max price',
                           suffixText: 'VND',
@@ -1547,7 +1659,8 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                   style: TextStyle(color: AppColors.subText),
                 ),
               const SizedBox(height: 20),
-              const Text('Sort by', style: TextStyle(fontWeight: FontWeight.w900)),
+              const Text('Sort by',
+                  style: TextStyle(fontWeight: FontWeight.w900)),
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -1565,10 +1678,16 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                         isExpanded: true,
                         underline: const SizedBox.shrink(),
                         items: const [
-                          DropdownMenuItem(value: 'createdAt_desc', child: Text('Newest')),
-                          DropdownMenuItem(value: 'price_asc', child: Text('Price low to high')),
-                          DropdownMenuItem(value: 'price_desc', child: Text('Price high to low')),
-                          DropdownMenuItem(value: 'name_asc', child: Text('Name A-Z')),
+                          DropdownMenuItem(
+                              value: 'createdAt_desc', child: Text('Newest')),
+                          DropdownMenuItem(
+                              value: 'price_asc',
+                              child: Text('Price low to high')),
+                          DropdownMenuItem(
+                              value: 'price_desc',
+                              child: Text('Price high to low')),
+                          DropdownMenuItem(
+                              value: 'name_asc', child: Text('Name A-Z')),
                         ],
                         onChanged: (value) {
                           if (value == null) return;
@@ -1590,37 +1709,31 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
                         side: BorderSide(color: AppColors.border),
                       ),
                       onPressed: _resetFilters,
-                      child: const Text('Clear', style: TextStyle(fontWeight: FontWeight.w800)),
+                      child: const Text('Clear',
+                          style: TextStyle(fontWeight: FontWeight.w800)),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     flex: 2,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: _brandGradient(AppColors.primary),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.35),
-                            blurRadius: 14,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _homeHeaderColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        onPressed: _applyFilters,
-                        child: const Text('Apply', style: TextStyle(fontWeight: FontWeight.w800)),
+                      ),
+                      onPressed: _applyFilters,
+                      child: const Text(
+                        'Apply',
+                        style: TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),
                   ),
@@ -1730,7 +1843,7 @@ class _SectionHeader extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Category row — colorful gradient icon chips
+// Category row: text-only filter chips.
 // ---------------------------------------------------------------------------
 class _CategoryRow extends StatelessWidget {
   final List<FoodCategory> categories;
@@ -1741,20 +1854,6 @@ class _CategoryRow extends StatelessWidget {
     required this.onCategoryTap,
   });
 
-  IconData _iconFor(String name) {
-    final lowerName = name.toLowerCase();
-    if (lowerName.contains('rice')) return Icons.rice_bowl_rounded;
-    if (lowerName.contains('drink') ||
-        lowerName.contains('tea') ||
-        lowerName.contains('water')) {
-      return Icons.local_drink_rounded;
-    }
-    if (lowerName.contains('snack')) return Icons.cookie_rounded;
-    if (lowerName.contains('noodle')) return Icons.ramen_dining_rounded;
-    if (lowerName.contains('fruit')) return Icons.apple_rounded;
-    return Icons.fastfood_rounded;
-  }
-
   @override
   Widget build(BuildContext context) {
     final visibleCategories = categories
@@ -1762,62 +1861,40 @@ class _CategoryRow extends StatelessWidget {
         .toList();
 
     return SizedBox(
-      height: 80,
+      height: 44,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: visibleCategories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 14),
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (_, i) {
           final category = visibleCategories[i];
-          final icon = _iconFor(category.name);
-          final gradientColors = _accentGradients[i % _accentGradients.length];
 
           return InkWell(
-            borderRadius: BorderRadius.circular(14),
-            splashColor: gradientColors.first.withValues(alpha: 0.15),
-            highlightColor: gradientColors.first.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(20),
+            splashColor: _homeHeaderColor.withValues(alpha: 0.10),
+            highlightColor: _homeHeaderColor.withValues(alpha: 0.05),
             onTap: () => onCategoryTap(category),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: gradientColors,
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: gradientColors.first.withValues(alpha: 0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(icon, size: 22, color: Colors.white),
+            child: Container(
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: _homeSurface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.border, width: 1),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                category.name,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF333333),
                 ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  width: 60,
-                  child: Text(
-                    category.name,
-                    maxLines: 1,
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF6B6B6B),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           );
         },

@@ -698,27 +698,34 @@ class _WeeklyFoodCard extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              CurrencyFormatter.vnd(food.price),
-                              style: const TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 15,
-                              ),
-                            ),
-                            if (remaining != null && !isSoldOut)
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Text(
-                                '$remaining left',
+                                CurrencyFormatter.vnd(food.price),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  color: AppColors.subText,
-                                  fontSize: 11,
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 15,
                                 ),
                               ),
-                          ],
+                              if (remaining != null && !isSoldOut)
+                                Text(
+                                  '$remaining left',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.subText,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 10),
                         GestureDetector(
                           onTap: onAdd,
                           child: AnimatedContainer(
@@ -1069,6 +1076,14 @@ class _WeeklyFilterSheetState extends State<_WeeklyFilterSheet> {
                           color: AppColors.subText, fontSize: 12),
                     ),
                     const SizedBox(height: 8),
+                    if (_priceError != null) ...[
+                      Text(
+                        _priceError!,
+                        style: const TextStyle(
+                            color: AppColors.error, fontSize: 12),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     Row(
                       children: [
                         Expanded(
@@ -1121,12 +1136,6 @@ class _WeeklyFilterSheetState extends State<_WeeklyFilterSheet> {
                         ),
                       ],
                     ),
-                    if (_priceError != null) ...[
-                      const SizedBox(height: 6),
-                      Text(_priceError!,
-                          style: const TextStyle(
-                              color: AppColors.error, fontSize: 12)),
-                    ],
                   ],
                 ),
               ),

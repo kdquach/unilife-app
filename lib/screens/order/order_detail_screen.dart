@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
@@ -12,6 +10,7 @@ import '../../models/food.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_storage.dart';
 import '../../services/order_service.dart';
+import '../../services/rating_service.dart';
 import '../../widgets/app_button.dart';
 import '../rating/create_rating_screen.dart';
 
@@ -29,8 +28,10 @@ class OrderDetailScreen extends StatefulWidget {
 class _OrderDetailScreenState extends State<OrderDetailScreen>
     with TickerProviderStateMixin {
   final OrderService _orderService = OrderService(ApiClient());
+  final RatingService _ratingService = RatingService(ApiClient());
 
   Order? _order;
+  bool _hasRatedOrder = false;
   bool _isLoading = true;
   String? _errorMessage;
   Timer? _pollingTimer;
@@ -75,10 +76,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       final token = await AuthStorage.getToken();
       final order =
           await _orderService.getOrderById(widget.orderId, token: token);
+      final hasRatedOrder = await _hasExistingOrderRating(order.id, token);
 
       if (!mounted) return;
       setState(() {
         _order = order;
+        _hasRatedOrder = hasRatedOrder;
         if (!quiet) _isLoading = false;
       });
       if (!quiet) _slideController.forward(from: 0);
@@ -91,6 +94,21 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
           _isLoading = false;
         }
       });
+    }
+  }
+
+  Future<bool> _hasExistingOrderRating(String orderId, String? token) async {
+    if (token == null || token.isEmpty) return false;
+    try {
+      final result = await _ratingService.getMyRatingsPage(
+        token: token,
+        orderId: orderId,
+        ratingType: 'ORDER',
+        limit: 1,
+      );
+      return result.items.isNotEmpty;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -168,26 +186,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     }
   }
 
-  Future<void> _copyOrderCode(String code) async {
-    await Clipboard.setData(ClipboardData(text: code));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF1E293B),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        margin: const EdgeInsets.all(16),
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_rounded, color: Color(0xFF86EFAC), size: 18),
-            const SizedBox(width: 10),
-            const Text('Order code copied', style: TextStyle(color: Colors.white, fontSize: 13)),
-          ],
-        ),
-      ),
-    );
-  }
-
   // ─── Backend Status Flow ──────────────────────────────────────────────────
   // PENDING_PAYMENT → (sepay confirmed) → CONFIRMED
   // PAID (cash)     → (QR scan)         → CONFIRMED
@@ -231,51 +229,30 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       case 'PENDING_PAYMENT':
         return _StatusMeta(
           label: 'Pending Payment',
-          message: 'Awaiting your payment. Please complete the transfer.',
-          gradientColors: [const Color(0xFFF59E0B), const Color(0xFFD97706)],
-          icon: Icons.schedule_rounded,
         );
       case 'PAID':
         return _StatusMeta(
           label: 'Paid',
-          message: 'Payment verified. Please scan your QR code at the counter.',
-          gradientColors: [const Color(0xFF0284C7), const Color(0xFF0369A1)],
-          icon: Icons.qr_code_scanner_rounded,
         );
       case 'CONFIRMED':
         return _StatusMeta(
           label: 'In Kitchen',
-          message: 'Order confirmed. Kitchen staff is preparing your meal.',
-          gradientColors: [const Color(0xFF7C3AED), const Color(0xFF6D28D9)],
-          icon: Icons.restaurant_rounded,
         );
       case 'COMPLETED':
         return _StatusMeta(
           label: 'Completed',
-          message: 'Your food is ready! Thank you for dining with UniLife!',
-          gradientColors: [const Color(0xFF16A34A), const Color(0xFF15803D)],
-          icon: Icons.check_circle_rounded,
         );
       case 'CANCELLED':
         return _StatusMeta(
           label: 'Cancelled',
-          message: 'This order has been cancelled.',
-          gradientColors: [const Color(0xFFEF4444), const Color(0xFFDC2626)],
-          icon: Icons.cancel_rounded,
         );
       case 'EXPIRED':
         return _StatusMeta(
           label: 'Expired',
-          message: 'This order has expired due to payment timeout.',
-          gradientColors: [const Color(0xFF6B7280), const Color(0xFF4B5563)],
-          icon: Icons.timer_off_rounded,
         );
       default:
         return _StatusMeta(
           label: status,
-          message: 'Processing your order.',
-          gradientColors: [AppColors.primary, AppColors.primaryDark],
-          icon: Icons.receipt_long_rounded,
         );
     }
   }
@@ -373,8 +350,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     final order = _order!;
     final s = order.status.toUpperCase();
     final canCancel = s == 'PENDING_PAYMENT' || s == 'PAID';
-    final canRate =
-        s == 'COMPLETED' && order.paymentStatus.toUpperCase() == 'PAID';
+    final canRate = s == 'COMPLETED' &&
+        order.paymentStatus.toUpperCase() == 'PAID' &&
+        !_hasRatedOrder;
     final meta = _statusMeta(order.status);
 
     return Scaffold(
@@ -386,142 +364,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             // ─── Hero Header ────────────────────────────────────────
-            SliverAppBar(
-              expandedHeight: 226,
-              pinned: true,
-              backgroundColor: meta.gradientColors.first,
-              leading: GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  margin: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.arrow_back_ios_new,
-                      color: Colors.white, size: 18),
-                ),
-              ),
-              flexibleSpace: FlexibleSpaceBar(
-                background: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: meta.gradientColors,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: Stack(
-                    children: [
-                      // Decorative translucent circles for visual polish
-                      Positioned(
-                        right: -36,
-                        top: -30,
-                        child: _DecorCircle(size: 130, opacity: 0.08),
-                      ),
-                      Positioned(
-                        left: -24,
-                        bottom: -34,
-                        child: _DecorCircle(size: 100, opacity: 0.06),
-                      ),
-                      SafeArea(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 52, 24, 20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // ── Order code, front and center ──────
-                              _OrderCodeChip(
-                                code: order.code,
-                                onTap: () => _copyOrderCode(order.code),
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.2),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Icon(meta.icon,
-                                        color: Colors.white, size: 20),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          meta.label,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: -0.5,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          meta.message,
-                                          style: const TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 12,
-                                              height: 1.4),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  // Queue badge
-                                  Container(
-                                    width: 70,
-                                    height: 70,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(18),
-                                      border: Border.all(
-                                          color: Colors.white30, width: 1.5),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Text(
-                                          'QUEUE',
-                                          style: TextStyle(
-                                              color: Colors.white60,
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.w800,
-                                              letterSpacing: 0.5),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          order.queueNumber,
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 22,
-                                              fontWeight: FontWeight.w900),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                collapseMode: CollapseMode.parallax,
-              ),
-              title: Text(
-                order.code,
-                style:
-                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-              ),
-            ),
+            SliverToBoxAdapter(child: _buildOrderHeader(order, meta)),
 
             // ─── Body content ────────────────────────────────────────
             SliverToBoxAdapter(
@@ -534,34 +377,21 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ── QR Code — moved to the very top, right ──
-                        // ── after the hero, since it's the thing ───
-                        // ── people need most urgently (pickup). ────
-                        if (order.code.isNotEmpty) ...[
-                          _buildSectionTitle('QR Code'),
-                          const SizedBox(height: 12),
-                          _buildQRCodeCard(order),
-                          const SizedBox(height: 24),
-                        ],
+                        // ── Order Code Banner ─────────────────────
                         // ── Timeline ──────────────────────────────
-                        _buildSectionTitle(
-                          'Order Timeline',
-                          trailing: !_isTerminalStatus(order.status)
-                              ? const _LiveChip()
-                              : null,
-                        ),
+                        _buildSectionTitle('Order Timeline'),
                         const SizedBox(height: 12),
                         _buildTimeline(order),
                         const SizedBox(height: 24),
                         // ── Order Info ───────────────────────────
-                        _buildSectionTitle('Order Info'),
-                        const SizedBox(height: 12),
-                        _buildInfoCard(order),
-                        const SizedBox(height: 24),
                         // ── Order Items ──────────────────────────
                         _buildSectionTitle('Order Items'),
                         const SizedBox(height: 12),
                         _buildItemsCard(order),
+                        const SizedBox(height: 24),
+                        _buildSectionTitle('Order Info'),
+                        const SizedBox(height: 12),
+                        _buildInfoCard(order),
                         const SizedBox(height: 28),
                         // ── Action Buttons ────────────────────────
                         _buildActions(context, order, canCancel, canRate),
@@ -573,6 +403,112 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrderHeader(Order order, _StatusMeta meta) {
+    return Container(
+      color: Colors.white,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              InkWell(
+                onTap: () => Navigator.pop(context),
+                borderRadius: BorderRadius.circular(12),
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: AppColors.text,
+                    size: 18,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        meta.label,
+                        style: const TextStyle(
+                          color: AppColors.text,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            color: AppColors.subText,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          children: [
+                            const TextSpan(text: 'Order Code  '),
+                            TextSpan(
+                              text: order.code,
+                              style: const TextStyle(
+                                color: AppColors.text,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'QUEUE',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      order.queueNumber,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -610,31 +546,21 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     final steps = [
       _TimelineStep(
         title: 'Order Placed',
-        description: 'We have received your order request.',
         icon: Icons.shopping_bag_outlined,
         stepKey: 'placed',
       ),
       _TimelineStep(
         title: 'Payment Confirmed',
-        description: order.paymentStatus.toUpperCase() == 'PAID'
-            ? 'Payment verified via ${order.paymentMethod}.'
-            : 'Awaiting payment confirmation.',
         icon: Icons.credit_card_rounded,
         stepKey: 'paid',
       ),
       _TimelineStep(
         title: 'Order Confirmed',
-        description: _isStepDone(order.status, 'confirmed')
-            ? 'QR scanned. Kitchen is preparing your meal.'
-            : 'Scan your QR code at the counter to enter the queue.',
         icon: Icons.restaurant_rounded,
         stepKey: 'confirmed',
       ),
       _TimelineStep(
         title: 'Ready for Pickup',
-        description: _isStepDone(order.status, 'ready')
-            ? 'Your meal is ready. Please pick it up!'
-            : 'Your meal will be ready shortly.',
         icon: Icons.check_circle_outline_rounded,
         stepKey: 'ready',
       ),
@@ -730,10 +656,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       child: Column(
         children: [
           _InfoRow(
+            icon: Icons.qr_code_rounded,
+            label: 'Order Code',
+            value: order.code,
+            isFirst: true,
+          ),
+          _InfoRow(
             icon: Icons.access_time_rounded,
             label: 'Placed At',
             value: _formatDateTime(order.createdAt),
-            isFirst: true,
           ),
           _InfoRow(
             icon: Icons.payment_rounded,
@@ -750,64 +681,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
             isLast: true,
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildQRCodeCard(Order order) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            const Text(
-              'Scan for Counter Staff',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.subText,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border, width: 1),
-              ),
-              child: QrImageView(
-                data: order.code,
-                version: QrVersions.auto,
-                size: 200.0,
-                backgroundColor: Colors.white,
-                errorCorrectionLevel: QrErrorCorrectLevel.M,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Order Code: ${order.code}',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.text,
-                letterSpacing: 1.5,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -962,15 +835,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
           SizedBox(
             width: double.infinity,
             height: 52,
-            child: ElevatedButton.icon(
-              onPressed: () => Navigator.pushNamed(
-                context,
-                CreateRatingScreen.routeName,
-                arguments: CreateRatingArgs(order: order),
-              ),
-              icon: const Icon(Icons.star_rounded, size: 20),
-              label: const Text('Rate Your Meal',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+            child: ElevatedButton(
+              onPressed: () async {
+                await Navigator.pushNamed(
+                  context,
+                  CreateRatingScreen.routeName,
+                  arguments: CreateRatingArgs(order: order),
+                );
+                if (mounted) await _fetchOrderDetail(quiet: true);
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFEF3C7),
                 foregroundColor: const Color(0xFFD97706),
@@ -978,6 +851,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
               ),
+              child: const Text('Rate Your Meal',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
             ),
           ),
         if (canCancel) ...[
@@ -1072,92 +947,22 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
 // ─── Data Helpers ────────────────────────────────────────────────────────────
 class _StatusMeta {
   final String label;
-  final String message;
-  final List<Color> gradientColors;
-  final IconData icon;
 
   _StatusMeta({
     required this.label,
-    required this.message,
-    required this.gradientColors,
-    required this.icon,
   });
 }
 
 class _TimelineStep {
   final String title;
-  final String description;
   final IconData icon;
   final String stepKey;
 
   _TimelineStep({
     required this.title,
-    required this.description,
     required this.icon,
     required this.stepKey,
   });
-}
-
-// ─── Order Code Chip (hero, top of page) ─────────────────────────────────────
-class _OrderCodeChip extends StatelessWidget {
-  final String code;
-  final VoidCallback onTap;
-
-  const _OrderCodeChip({required this.code, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.28), width: 1),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.confirmation_number_rounded, color: Colors.white, size: 16),
-            const SizedBox(width: 8),
-            Text(
-              code,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.2,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Icon(Icons.copy_rounded, color: Colors.white.withValues(alpha: 0.85), size: 14),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Decorative background circle for the hero gradient ─────────────────────
-class _DecorCircle extends StatelessWidget {
-  final double size;
-  final double opacity;
-
-  const _DecorCircle({required this.size, required this.opacity});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: opacity),
-        shape: BoxShape.circle,
-      ),
-    );
-  }
 }
 
 // ─── Timeline Item ────────────────────────────────────────────────────────────
@@ -1263,23 +1068,7 @@ class _TimelineItem extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (done)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFDCFCE7),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          'Done',
-                          style: TextStyle(
-                              color: AppColors.success,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800),
-                        ),
-                      )
-                    else if (isActive)
+                    if (isActive)
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 7, vertical: 2),
@@ -1296,17 +1085,6 @@ class _TimelineItem extends StatelessWidget {
                         ),
                       ),
                   ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  step.description,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: done || isActive
-                        ? AppColors.subText
-                        : const Color(0xFFD1D5DB),
-                    height: 1.4,
-                  ),
                 ),
               ],
             ),
@@ -1433,76 +1211,3 @@ class _PulsingInnerDotState extends State<_PulsingInnerDot>
 }
 
 // ─── Live Chip ────────────────────────────────────────────────────────────────
-class _LiveChip extends StatefulWidget {
-  const _LiveChip();
-
-  @override
-  State<_LiveChip> createState() => _LiveChipState();
-}
-
-class _LiveChipState extends State<_LiveChip>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl =
-        AnimationController(vsync: this, duration: const Duration(seconds: 2))
-          ..repeat(reverse: true);
-    _anim = Tween<double>(begin: 0.4, end: 1.0)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (_, __) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.green.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(999),
-          border:
-              Border.all(color: Colors.green.withValues(alpha: 0.3), width: 1),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.green.withValues(alpha: _anim.value),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.green.withValues(alpha: 0.4 * _anim.value),
-                    blurRadius: 4,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 5),
-            const Text(
-              'Live',
-              style: TextStyle(
-                color: Colors.green,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
