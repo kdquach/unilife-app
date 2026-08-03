@@ -878,18 +878,34 @@ class _WeeklyFilterSheetState extends State<_WeeklyFilterSheet> {
     int? minPrice;
     int? maxPrice;
     if (widget.hasPriceData) {
-      final min = int.tryParse(_minCtrl.text.trim());
-      final max = int.tryParse(_maxCtrl.text.trim());
-      if (min != null && max != null) {
-        if (min > max) {
-          setState(() => _priceError = 'Min must be ≤ Max.');
-          return;
-        }
-        if (min != widget.availableMinPrice ||
-            max != widget.availableMaxPrice) {
-          minPrice = min;
-          maxPrice = max;
-        }
+      final minText = _minCtrl.text.trim();
+      final maxText = _maxCtrl.text.trim();
+      final min = int.tryParse(minText);
+      final max = int.tryParse(maxText);
+      if (minText.isEmpty || maxText.isEmpty) {
+        setState(() => _priceError = 'Please enter both min and max price.');
+        return;
+      }
+      if (min == null || max == null) {
+        setState(() => _priceError = 'Price must be a valid number.');
+        return;
+      }
+      if (min > max) {
+        setState(
+          () => _priceError = 'Min price must be less than or equal to max.',
+        );
+        return;
+      }
+      if (min < widget.availableMinPrice || max > widget.availableMaxPrice) {
+        setState(
+          () => _priceError =
+              'Price must be between ${CurrencyFormatter.vnd(widget.availableMinPrice)} and ${CurrencyFormatter.vnd(widget.availableMaxPrice)}.',
+        );
+        return;
+      }
+      if (min != widget.availableMinPrice || max != widget.availableMaxPrice) {
+        minPrice = min;
+        maxPrice = max;
       }
     }
     Navigator.pop(
