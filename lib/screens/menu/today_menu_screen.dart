@@ -29,6 +29,9 @@ class _TodayMenuScreenState extends ConsumerState<TodayMenuScreen> {
   String _selectedMeal = 'All';
   String _selectedCategoryName = 'All';
   String _selectedAvailability = 'All';
+  String _sortOption = 'default';
+  int? _selectedMinPrice;
+  int? _selectedMaxPrice;
 
   @override
   void initState() {
@@ -70,7 +73,7 @@ class _TodayMenuScreenState extends ConsumerState<TodayMenuScreen> {
   }
 
   List<Food> get _filteredFoods {
-    return _foods.where((food) {
+    final filtered = _foods.where((food) {
       final mealOk =
           _selectedMeal == 'All' || (food.mealType ?? 'Menu') == _selectedMeal;
       final catOk = _selectedCategoryName == 'All' ||
@@ -78,14 +81,47 @@ class _TodayMenuScreenState extends ConsumerState<TodayMenuScreen> {
       final availOk = _selectedAvailability == 'All' ||
           (_selectedAvailability == 'Available' && food.canAddToCart) ||
           (_selectedAvailability == 'Sold out' && !food.canAddToCart);
-      return mealOk && catOk && availOk;
+      final minOk =
+          _selectedMinPrice == null || food.price >= _selectedMinPrice!;
+      final maxOk =
+          _selectedMaxPrice == null || food.price <= _selectedMaxPrice!;
+      return mealOk && catOk && availOk && minOk && maxOk;
     }).toList();
+
+    switch (_sortOption) {
+      case 'price_asc':
+        filtered.sort((a, b) => a.price.compareTo(b.price));
+        break;
+      case 'price_desc':
+        filtered.sort((a, b) => b.price.compareTo(a.price));
+        break;
+      case 'name_asc':
+        filtered.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
+        break;
+    }
+
+    return filtered;
   }
 
   bool get _hasActiveFilters =>
       _selectedMeal != 'All' ||
       _selectedCategoryName != 'All' ||
-      _selectedAvailability != 'All';
+      _selectedAvailability != 'All' ||
+      _selectedMinPrice != null ||
+      _selectedMaxPrice != null ||
+      _sortOption != 'default';
+
+  int _minPriceFor(List<Food> foods) {
+    if (foods.isEmpty) return 0;
+    return foods.map((food) => food.price).reduce((a, b) => a < b ? a : b);
+  }
+
+  int _maxPriceFor(List<Food> foods) {
+    if (foods.isEmpty) return 0;
+    return foods.map((food) => food.price).reduce((a, b) => a > b ? a : b);
+  }
 
   void _open(Food food) =>
       Navigator.pushNamed(context, FoodDetailScreen.routeName, arguments: food);
@@ -117,6 +153,9 @@ class _TodayMenuScreenState extends ConsumerState<TodayMenuScreen> {
       _selectedMeal = 'All';
       _selectedCategoryName = 'All';
       _selectedAvailability = 'All';
+      _selectedMinPrice = null;
+      _selectedMaxPrice = null;
+      _sortOption = 'default';
     });
   }
 
@@ -124,6 +163,18 @@ class _TodayMenuScreenState extends ConsumerState<TodayMenuScreen> {
     var tempMeal = _selectedMeal;
     var tempCategory = _selectedCategoryName;
     var tempAvailability = _selectedAvailability;
+    var tempSortOption = _sortOption;
+    final availableMinPrice = _minPriceFor(_foods);
+    final availableMaxPrice = _maxPriceFor(_foods);
+    final hasPriceRange =
+        availableMaxPrice > availableMinPrice && availableMaxPrice > 0;
+    final minCtrl = TextEditingController(
+      text: (_selectedMinPrice ?? availableMinPrice).toString(),
+    );
+    final maxCtrl = TextEditingController(
+      text: (_selectedMaxPrice ?? availableMaxPrice).toString(),
+    );
+    String? priceError;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -191,6 +242,92 @@ class _TodayMenuScreenState extends ConsumerState<TodayMenuScreen> {
                   selected: tempAvailability,
                   onSelect: (v) => setSheet(() => tempAvailability = v),
                 ),
+                const SizedBox(height: 20),
+                _sheetSection(
+                  title: 'Sort by',
+                  options: const [
+                    'Default',
+                    'Price low to high',
+                    'Price high to low',
+                    'Name A-Z',
+                  ],
+                  selected: _sortLabel(tempSortOption),
+                  onSelect: (v) => setSheet(
+                    () => tempSortOption = _sortOptionForLabel(v),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Price',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    color: AppColors.subText,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (hasPriceRange) ...[
+                  if (priceError != null) ...[
+                    Text(
+                      priceError!,
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: minCtrl,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          onChanged: (_) => setSheet(() => priceError = null),
+                          decoration: InputDecoration(
+                            labelText: 'Min price',
+                            suffixText: 'VND',
+                            filled: true,
+                            fillColor: AppColors.muted,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: maxCtrl,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          onChanged: (_) => setSheet(() => priceError = null),
+                          decoration: InputDecoration(
+                            labelText: 'Max price',
+                            suffixText: 'VND',
+                            filled: true,
+                            fillColor: AppColors.muted,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else
+                  const Text(
+                    'No price range available',
+                    style: TextStyle(color: AppColors.subText),
+                  ),
                 const SizedBox(height: 28),
                 Row(
                   children: [
@@ -201,6 +338,10 @@ class _TodayMenuScreenState extends ConsumerState<TodayMenuScreen> {
                             tempMeal = 'All';
                             tempCategory = 'All';
                             tempAvailability = 'All';
+                            tempSortOption = 'default';
+                            minCtrl.text = availableMinPrice.toString();
+                            maxCtrl.text = availableMaxPrice.toString();
+                            priceError = null;
                           });
                         },
                         style: OutlinedButton.styleFrom(
@@ -218,11 +359,48 @@ class _TodayMenuScreenState extends ConsumerState<TodayMenuScreen> {
                       flex: 2,
                       child: ElevatedButton(
                         onPressed: () {
+                          int? minPrice;
+                          int? maxPrice;
+                          if (hasPriceRange) {
+                            final minText = minCtrl.text.trim();
+                            final maxText = maxCtrl.text.trim();
+                            final min = int.tryParse(minText);
+                            final max = int.tryParse(maxText);
+                            if (minText.isEmpty || maxText.isEmpty) {
+                              setSheet(() => priceError =
+                                  'Please enter both min and max price.');
+                              return;
+                            }
+                            if (min == null || max == null) {
+                              setSheet(() =>
+                                  priceError = 'Price must be a valid number.');
+                              return;
+                            }
+                            if (min > max) {
+                              setSheet(() => priceError =
+                                  'Min price must be less than or equal to max.');
+                              return;
+                            }
+                            if (min < availableMinPrice ||
+                                max > availableMaxPrice) {
+                              setSheet(() => priceError =
+                                  'Price must be between ${CurrencyFormatter.vnd(availableMinPrice)} and ${CurrencyFormatter.vnd(availableMaxPrice)}.');
+                              return;
+                            }
+                            if (min != availableMinPrice ||
+                                max != availableMaxPrice) {
+                              minPrice = min;
+                              maxPrice = max;
+                            }
+                          }
                           Navigator.pop(ctx);
                           setState(() {
                             _selectedMeal = tempMeal;
                             _selectedCategoryName = tempCategory;
                             _selectedAvailability = tempAvailability;
+                            _selectedMinPrice = minPrice;
+                            _selectedMaxPrice = maxPrice;
+                            _sortOption = tempSortOption;
                           });
                         },
                         style: ElevatedButton.styleFrom(
@@ -244,6 +422,35 @@ class _TodayMenuScreenState extends ConsumerState<TodayMenuScreen> {
         ),
       ),
     );
+
+    minCtrl.dispose();
+    maxCtrl.dispose();
+  }
+
+  String _sortLabel(String sortOption) {
+    switch (sortOption) {
+      case 'price_asc':
+        return 'Price low to high';
+      case 'price_desc':
+        return 'Price high to low';
+      case 'name_asc':
+        return 'Name A-Z';
+      default:
+        return 'Default';
+    }
+  }
+
+  String _sortOptionForLabel(String label) {
+    switch (label) {
+      case 'Price low to high':
+        return 'price_asc';
+      case 'Price high to low':
+        return 'price_desc';
+      case 'Name A-Z':
+        return 'name_asc';
+      default:
+        return 'default';
+    }
   }
 
   Widget _sheetSection({
