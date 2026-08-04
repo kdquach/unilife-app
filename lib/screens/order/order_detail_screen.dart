@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
@@ -378,6 +379,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // ── Order Code Banner ─────────────────────
+                        // ── QR Code ─────────────────────────────
+                        if (order.code.isNotEmpty) ...[
+                          _buildSectionTitle('QR Code'),
+                          const SizedBox(height: 12),
+                          _buildQRCodeCard(order),
+                          const SizedBox(height: 24),
+                        ],
                         // ── Timeline ──────────────────────────────
                         _buildSectionTitle('Order Timeline'),
                         const SizedBox(height: 12),
@@ -681,6 +689,65 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
             isLast: true,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQRCodeCard(Order order) {
+    return Center(
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              const Text(
+                'Scan for Counter Staff',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.subText,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border, width: 1),
+                ),
+                child: QrImageView(
+                  data: order.code,
+                  version: QrVersions.auto,
+                  size: 200.0,
+                  backgroundColor: Colors.white,
+                  errorCorrectionLevel: QrErrorCorrectLevel.M,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Order Code: ${order.code}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.text,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
