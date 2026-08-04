@@ -137,6 +137,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 label: _isLoading ? 'Logging in...' : 'Login',
                 onPressed: _isLoading ? null : _handleLogin,
               ),
+              const SizedBox(height: 16),
+              AppButton(
+                label: 'Continue as Guest',
+                secondary: true,
+                onPressed: () => Navigator.pushReplacementNamed(
+                  context,
+                  MainShell.routeName,
+                ),
+              ),
               const SizedBox(height: 42),
               TextButton(
                 onPressed: () =>
