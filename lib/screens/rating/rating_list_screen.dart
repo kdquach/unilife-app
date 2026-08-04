@@ -9,6 +9,7 @@ import '../../services/rating_service.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 import '../auth/login_screen.dart';
+import 'create_rating_screen.dart';
 
 class RatingListScreen extends StatefulWidget {
   static const String routeName = '/ratings';
@@ -161,6 +162,78 @@ class _RatingListScreenState extends State<RatingListScreen> {
     );
   }
 
+  Future<void> _openEdit(CustomerRating rating) async {
+    await Navigator.pushNamed(
+      context,
+      CreateRatingScreen.routeName,
+      arguments: CreateRatingArgs(rating: rating),
+    );
+    if (mounted) await _loadRatings();
+  }
+
+  Future<void> _deleteRating(CustomerRating rating) async {
+    final confirm = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Delete this rating?',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'This action cannot be undone.',
+              style: TextStyle(color: AppColors.subText),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: AppButton(
+                    label: 'Keep',
+                    secondary: true,
+                    onPressed: () => Navigator.pop(context, false),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AppButton(
+                    label: 'Delete',
+                    danger: true,
+                    onPressed: () => Navigator.pop(context, true),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await _ratingService.deleteRating(rating.id, token: _token);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rating deleted')),
+      );
+      await _loadRatings();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_cleanError(error)),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -213,6 +286,9 @@ class _RatingListScreenState extends State<RatingListScreen> {
                   padding: const EdgeInsets.only(bottom: 14),
                   child: _RatingCard(
                     rating: rating,
+                    canManage: !_isFoodReviewMode,
+                    onEdit: () => _openEdit(rating),
+                    onDelete: () => _deleteRating(rating),
                   ),
                 ),
               ),
@@ -246,9 +322,15 @@ class RatingListArgs {
 
 class _RatingCard extends StatelessWidget {
   final CustomerRating rating;
+  final bool canManage;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   const _RatingCard({
     required this.rating,
+    required this.canManage,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   @override
@@ -279,6 +361,17 @@ class _RatingCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (canManage)
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'edit') onEdit();
+                    if (value == 'delete') onDelete();
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'edit', child: Text('Edit')),
+                    PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  ],
+                ),
             ],
           ),
           const SizedBox(height: 10),
