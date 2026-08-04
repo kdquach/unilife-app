@@ -24,6 +24,10 @@ class CustomerRating {
   });
 
   String get targetLabel {
+    if (ratingType.toUpperCase() == 'FOOD') {
+      final foodName = food?.name.trim() ?? '';
+      if (foodName.isNotEmpty) return foodName;
+    }
     final code = order?.code.trim() ?? '';
     if (code.isNotEmpty) return 'Order #$code';
     final foodName = food?.name.trim() ?? '';

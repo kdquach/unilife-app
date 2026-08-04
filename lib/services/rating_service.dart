@@ -115,6 +115,48 @@ class RatingService {
     return _parseRatingItem(response);
   }
 
+  Future<List<CustomerRating>> createRatingsBulk({
+    required String orderId,
+    required List<Map<String, dynamic>> reviews,
+    String? token,
+  }) async {
+    final response = await _apiClient.postJson(
+      '/ratings/bulk',
+      {
+        'orderId': orderId,
+        'reviews': reviews,
+      },
+      token: token,
+    );
+
+    final data = response['data'];
+    if (data is List) {
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(CustomerRating.fromJson)
+          .toList();
+    }
+    throw ApiException(statusCode: 500, message: 'Invalid rating data');
+  }
+
+  Future<List<ReviewableRatingItem>> getReviewableItems({
+    required String orderId,
+    String? token,
+  }) async {
+    final response = await _apiClient.getJson(
+      '/ratings/order/$orderId/items',
+      token: token,
+    );
+    final data = response['data'];
+    final items = data is Map ? data['items'] : null;
+    return items is List
+        ? items
+            .whereType<Map<String, dynamic>>()
+            .map(ReviewableRatingItem.fromJson)
+            .toList()
+        : <ReviewableRatingItem>[];
+  }
+
   Future<CustomerRating> updateRating({
     required String ratingId,
     required int stars,
@@ -192,4 +234,57 @@ class RatingPage {
   });
 
   bool get hasMore => page < totalPages;
+}
+
+class ReviewableRatingItem {
+  final String orderItemId;
+  final String foodId;
+  final String foodName;
+  final String? foodImage;
+  final int quantity;
+  final int unitPrice;
+  final String reviewStatus;
+  final CustomerRating? review;
+
+  const ReviewableRatingItem({
+    required this.orderItemId,
+    required this.foodId,
+    required this.foodName,
+    this.foodImage,
+    required this.quantity,
+    required this.unitPrice,
+    required this.reviewStatus,
+    this.review,
+  });
+
+  bool get isReviewed => reviewStatus.toUpperCase() == 'REVIEWED';
+
+  factory ReviewableRatingItem.fromJson(Map<String, dynamic> json) {
+    final reviewRaw = json['review'];
+    return ReviewableRatingItem(
+      orderItemId: json['orderItemId']?.toString() ?? '',
+      foodId: json['foodId']?.toString() ?? '',
+      foodName: json['foodName']?.toString() ?? 'Food',
+      foodImage: json['foodImage']?.toString(),
+      quantity: ((json['quantity'] as num?) ?? 0).toInt(),
+      unitPrice: ((json['unitPrice'] as num?) ?? 0).toInt(),
+      reviewStatus: json['reviewStatus']?.toString() ?? 'NOT_REVIEWED',
+      review: reviewRaw is Map<String, dynamic>
+          ? CustomerRating.fromJson({
+              'ratingId': reviewRaw['ratingId'],
+              'stars': reviewRaw['stars'],
+              'comment': reviewRaw['comment'],
+              'staffReply': reviewRaw['staffReply'],
+              'createdAt': reviewRaw['createdAt'],
+              'updatedAt': reviewRaw['updatedAt'],
+              'foodId': {
+                '_id': json['foodId'],
+                'name': json['foodName'],
+                'imageUrl': json['foodImage'],
+                'price': json['unitPrice'],
+              },
+            })
+          : null,
+    );
+  }
 }

@@ -9,7 +9,6 @@ import '../../services/rating_service.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 import '../auth/login_screen.dart';
-import 'create_rating_screen.dart';
 
 class RatingListScreen extends StatefulWidget {
   static const String routeName = '/ratings';
@@ -26,7 +25,6 @@ class _RatingListScreenState extends State<RatingListScreen> {
   final RatingService _ratingService = RatingService(ApiClient());
 
   List<CustomerRating> _ratings = [];
-  Set<String> _myRatingIds = {};
   RatingPage? _ratingsPage;
   bool _isLoading = true;
   bool _isLoadingMore = false;
@@ -61,7 +59,6 @@ class _RatingListScreenState extends State<RatingListScreen> {
         setState(() {
           _token = token;
           _ratings = result.items;
-          _myRatingIds = {};
           _ratingsPage = result;
           _isLoading = false;
         });
@@ -72,7 +69,6 @@ class _RatingListScreenState extends State<RatingListScreen> {
         setState(() {
           _token = null;
           _ratings = [];
-          _myRatingIds = {};
           _ratingsPage = null;
           _isLoading = false;
           _error = 'Please log in to view your ratings.';
@@ -85,7 +81,6 @@ class _RatingListScreenState extends State<RatingListScreen> {
       setState(() {
         _token = token;
         _ratings = result.items;
-        _myRatingIds = result.items.map((rating) => rating.id).toSet();
         _ratingsPage = result;
         _isLoading = false;
       });
@@ -95,7 +90,6 @@ class _RatingListScreenState extends State<RatingListScreen> {
       setState(() {
         _token = error.statusCode == 401 ? null : _token;
         _ratings = [];
-        _myRatingIds = {};
         _ratingsPage = null;
         _isLoading = false;
         if (_isFoodReviewMode &&
@@ -139,9 +133,6 @@ class _RatingListScreenState extends State<RatingListScreen> {
       setState(() {
         _ratings = [..._ratings, ...result.items];
         _ratingsPage = result;
-        if (!_isFoodReviewMode) {
-          _myRatingIds = _ratings.map((rating) => rating.id).toSet();
-        }
       });
     } catch (error) {
       if (!mounted) return;
@@ -161,107 +152,13 @@ class _RatingListScreenState extends State<RatingListScreen> {
     required int page,
     required int limit,
   }) async {
-    if (token == null || token.isEmpty) {
-      return RatingPage(
-        items: const [],
-        page: page,
-        limit: limit,
-        total: 0,
-        totalPages: 0,
-      );
-    }
-
-    return _ratingService.getMyRatingsPage(
+    return _ratingService.getRatingsPage(
       token: token,
       foodId: widget.args!.foodId,
+      ratingType: 'FOOD',
       page: page,
       limit: limit,
     );
-  }
-
-  Future<void> _openCreate() async {
-    final token = _token ?? await AuthStorage.getToken();
-    if (!mounted) return;
-    if (token == null || token.isEmpty) {
-      await Navigator.pushNamed(context, LoginScreen.routeName);
-      if (mounted) await _loadRatings();
-      return;
-    }
-
-    await Navigator.pushNamed(context, CreateRatingScreen.routeName);
-    if (mounted) await _loadRatings();
-  }
-
-  Future<void> _openEdit(CustomerRating rating) async {
-    await Navigator.pushNamed(
-      context,
-      CreateRatingScreen.routeName,
-      arguments: CreateRatingArgs(rating: rating),
-    );
-    if (mounted) await _loadRatings();
-  }
-
-  Future<void> _deleteRating(CustomerRating rating) async {
-    final confirm = await showModalBottomSheet<bool>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Delete this rating?',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'This action cannot be undone.',
-              style: TextStyle(color: AppColors.subText),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: AppButton(
-                    label: 'Keep',
-                    secondary: true,
-                    onPressed: () => Navigator.pop(context, false),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: AppButton(
-                    label: 'Delete',
-                    danger: true,
-                    onPressed: () => Navigator.pop(context, true),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-    if (confirm != true) return;
-
-    try {
-      await _ratingService.deleteRating(rating.id, token: _token);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Rating deleted')),
-      );
-      await _loadRatings();
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_cleanError(error)),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    }
   }
 
   @override
@@ -274,14 +171,7 @@ class _RatingListScreenState extends State<RatingListScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(24),
           children: [
-            if (!_isFoodReviewMode) ...[
-              AppButton(
-                label: 'Create New Rating',
-                secondary: true,
-                onPressed: _openCreate,
-              ),
-              const SizedBox(height: 20),
-            ] else if (widget.args?.foodName != null) ...[
+            if (_isFoodReviewMode && widget.args?.foodName != null) ...[
               Text(
                 widget.args!.foodName!,
                 style: const TextStyle(
@@ -323,10 +213,6 @@ class _RatingListScreenState extends State<RatingListScreen> {
                   padding: const EdgeInsets.only(bottom: 14),
                   child: _RatingCard(
                     rating: rating,
-                    canManage:
-                        !_isFoodReviewMode && _myRatingIds.contains(rating.id),
-                    onEdit: () => _openEdit(rating),
-                    onDelete: () => _deleteRating(rating),
                   ),
                 ),
               ),
@@ -360,15 +246,9 @@ class RatingListArgs {
 
 class _RatingCard extends StatelessWidget {
   final CustomerRating rating;
-  final bool canManage;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
 
   const _RatingCard({
     required this.rating,
-    required this.canManage,
-    required this.onEdit,
-    required this.onDelete,
   });
 
   @override
@@ -399,17 +279,6 @@ class _RatingCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (canManage)
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    if (value == 'edit') onEdit();
-                    if (value == 'delete') onDelete();
-                  },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(value: 'edit', child: Text('Edit')),
-                    PopupMenuItem(value: 'delete', child: Text('Delete')),
-                  ],
-                ),
             ],
           ),
           const SizedBox(height: 10),

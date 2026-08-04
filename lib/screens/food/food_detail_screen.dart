@@ -106,19 +106,10 @@ class _FoodDetailScreenState extends ConsumerState<FoodDetailScreen> {
     required int limit,
     int page = 1,
   }) async {
-    if (token == null || token.isEmpty) {
-      return RatingPage(
-        items: const [],
-        page: page,
-        limit: limit,
-        total: 0,
-        totalPages: 0,
-      );
-    }
-
-    return _ratingService.getMyRatingsPage(
+    return _ratingService.getRatingsPage(
       token: token,
       foodId: _food.id,
+      ratingType: 'FOOD',
       page: page,
       limit: limit,
     );
