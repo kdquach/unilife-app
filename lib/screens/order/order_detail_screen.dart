@@ -32,7 +32,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   final RatingService _ratingService = RatingService(ApiClient());
 
   Order? _order;
-  bool _hasRatedOrder = false;
+  bool _hasRatedAllItems = false;
   bool _isLoading = true;
   String? _errorMessage;
   Timer? _pollingTimer;
@@ -77,12 +77,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       final token = await AuthStorage.getToken();
       final order =
           await _orderService.getOrderById(widget.orderId, token: token);
-      final hasRatedOrder = await _hasExistingOrderRating(order.id, token);
+      final hasRatedAllItems = await _hasReviewedAllFoodItems(order, token);
 
       if (!mounted) return;
       setState(() {
         _order = order;
-        _hasRatedOrder = hasRatedOrder;
+        _hasRatedAllItems = hasRatedAllItems;
         if (!quiet) _isLoading = false;
       });
       if (!quiet) _slideController.forward(from: 0);
@@ -98,16 +98,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     }
   }
 
-  Future<bool> _hasExistingOrderRating(String orderId, String? token) async {
+  Future<bool> _hasReviewedAllFoodItems(Order order, String? token) async {
     if (token == null || token.isEmpty) return false;
+
     try {
-      final result = await _ratingService.getMyRatingsPage(
+      final items = await _ratingService.getReviewableItems(
+        orderId: order.id,
         token: token,
-        orderId: orderId,
-        ratingType: 'ORDER',
-        limit: 1,
       );
-      return result.items.isNotEmpty;
+      return items.isNotEmpty && items.every((item) => item.isReviewed);
     } catch (_) {
       return false;
     }
@@ -353,7 +352,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     final canCancel = s == 'PENDING_PAYMENT' || s == 'PAID';
     final canRate = s == 'COMPLETED' &&
         order.paymentStatus.toUpperCase() == 'PAID' &&
-        !_hasRatedOrder;
+        !_hasRatedAllItems;
     final meta = _statusMeta(order.status);
 
     return Scaffold(
