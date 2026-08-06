@@ -54,11 +54,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     setState(() => _token = token);
 
     if (token == null || token.isEmpty) {
-      setState(() {
-        _isLoading = false;
-        _requiresLogin = true;
-        _error = null;
-      });
+      Navigator.pushReplacementNamed(context, LoginScreen.routeName);
       return;
     }
 
