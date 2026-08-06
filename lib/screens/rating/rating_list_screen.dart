@@ -26,7 +26,6 @@ class _RatingListScreenState extends State<RatingListScreen> {
   final RatingService _ratingService = RatingService(ApiClient());
 
   List<CustomerRating> _ratings = [];
-  Set<String> _myRatingIds = {};
   RatingPage? _ratingsPage;
   bool _isLoading = true;
   bool _isLoadingMore = false;
@@ -61,7 +60,6 @@ class _RatingListScreenState extends State<RatingListScreen> {
         setState(() {
           _token = token;
           _ratings = result.items;
-          _myRatingIds = {};
           _ratingsPage = result;
           _isLoading = false;
         });
@@ -72,7 +70,6 @@ class _RatingListScreenState extends State<RatingListScreen> {
         setState(() {
           _token = null;
           _ratings = [];
-          _myRatingIds = {};
           _ratingsPage = null;
           _isLoading = false;
           _error = 'Please log in to view your ratings.';
@@ -85,7 +82,6 @@ class _RatingListScreenState extends State<RatingListScreen> {
       setState(() {
         _token = token;
         _ratings = result.items;
-        _myRatingIds = result.items.map((rating) => rating.id).toSet();
         _ratingsPage = result;
         _isLoading = false;
       });
@@ -95,7 +91,6 @@ class _RatingListScreenState extends State<RatingListScreen> {
       setState(() {
         _token = error.statusCode == 401 ? null : _token;
         _ratings = [];
-        _myRatingIds = {};
         _ratingsPage = null;
         _isLoading = false;
         if (_isFoodReviewMode &&
@@ -139,9 +134,6 @@ class _RatingListScreenState extends State<RatingListScreen> {
       setState(() {
         _ratings = [..._ratings, ...result.items];
         _ratingsPage = result;
-        if (!_isFoodReviewMode) {
-          _myRatingIds = _ratings.map((rating) => rating.id).toSet();
-        }
       });
     } catch (error) {
       if (!mounted) return;
@@ -161,35 +153,13 @@ class _RatingListScreenState extends State<RatingListScreen> {
     required int page,
     required int limit,
   }) async {
-    if (token == null || token.isEmpty) {
-      return RatingPage(
-        items: const [],
-        page: page,
-        limit: limit,
-        total: 0,
-        totalPages: 0,
-      );
-    }
-
-    return _ratingService.getMyRatingsPage(
+    return _ratingService.getRatingsPage(
       token: token,
       foodId: widget.args!.foodId,
+      ratingType: 'FOOD',
       page: page,
       limit: limit,
     );
-  }
-
-  Future<void> _openCreate() async {
-    final token = _token ?? await AuthStorage.getToken();
-    if (!mounted) return;
-    if (token == null || token.isEmpty) {
-      await Navigator.pushNamed(context, LoginScreen.routeName);
-      if (mounted) await _loadRatings();
-      return;
-    }
-
-    await Navigator.pushNamed(context, CreateRatingScreen.routeName);
-    if (mounted) await _loadRatings();
   }
 
   Future<void> _openEdit(CustomerRating rating) async {
@@ -274,14 +244,7 @@ class _RatingListScreenState extends State<RatingListScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(24),
           children: [
-            if (!_isFoodReviewMode) ...[
-              AppButton(
-                label: 'Create New Rating',
-                secondary: true,
-                onPressed: _openCreate,
-              ),
-              const SizedBox(height: 20),
-            ] else if (widget.args?.foodName != null) ...[
+            if (_isFoodReviewMode && widget.args?.foodName != null) ...[
               Text(
                 widget.args!.foodName!,
                 style: const TextStyle(
@@ -323,8 +286,7 @@ class _RatingListScreenState extends State<RatingListScreen> {
                   padding: const EdgeInsets.only(bottom: 14),
                   child: _RatingCard(
                     rating: rating,
-                    canManage:
-                        !_isFoodReviewMode && _myRatingIds.contains(rating.id),
+                    canManage: !_isFoodReviewMode,
                     onEdit: () => _openEdit(rating),
                     onDelete: () => _deleteRating(rating),
                   ),

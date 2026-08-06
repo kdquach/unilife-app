@@ -65,7 +65,18 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
   String _searchText = '';
   String _searchQuery = '';
   String _todayAvailabilityFilter = _all;
+  String _todaySortOption = 'default';
   String _alwaysAvailabilityFilter = _all;
+  String _alwaysSortOption = 'default';
+  String _weekCategoryName = _all;
+  String _weekAvailabilityFilter = _all;
+  String _weekSortOption = 'default';
+  int? _todayMinPrice;
+  int? _todayMaxPrice;
+  int? _alwaysMinPrice;
+  int? _alwaysMaxPrice;
+  int? _weekMinPrice;
+  int? _weekMaxPrice;
   bool _isLoadingScheduled = true;
   bool _isLoadingAlways = true;
   bool _isLoadingWeekly = true;
@@ -211,6 +222,35 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
         (filter == 'Sold out' && !food.canAddToCart);
   }
 
+  bool _matchesCategoryName(Food food, String category) {
+    return category == _all ||
+        food.category.toLowerCase() == category.toLowerCase();
+  }
+
+  bool _matchesPrice(Food food, int? minPrice, int? maxPrice) {
+    final minOk = minPrice == null || food.price >= minPrice;
+    final maxOk = maxPrice == null || food.price <= maxPrice;
+    return minOk && maxOk;
+  }
+
+  List<Food> _sortFoods(List<Food> foods, String sortOption) {
+    final sorted = [...foods];
+    switch (sortOption) {
+      case 'price_asc':
+        sorted.sort((a, b) => a.price.compareTo(b.price));
+        break;
+      case 'price_desc':
+        sorted.sort((a, b) => b.price.compareTo(a.price));
+        break;
+      case 'name_asc':
+        sorted.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
+        break;
+    }
+    return sorted;
+  }
+
   bool _matchesSearch(Food food) {
     final query = _searchQuery.trim().toLowerCase();
     if (query.isEmpty) return true;
@@ -220,19 +260,23 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
   }
 
   List<Food> get _visibleScheduledFoods {
-    return _scheduledFoods
+    final foods = _scheduledFoods
         .where(_matchesSelectedCategory)
         .where((food) => _matchesAvailability(food, _todayAvailabilityFilter))
+        .where((food) => _matchesPrice(food, _todayMinPrice, _todayMaxPrice))
         .where(_matchesSearch)
         .toList();
+    return _sortFoods(foods, _todaySortOption);
   }
 
   List<Food> get _visibleAlwaysAvailableFoods {
-    return _alwaysAvailableFoods
+    final foods = _alwaysAvailableFoods
         .where(_matchesSelectedCategory)
         .where((food) => _matchesAvailability(food, _alwaysAvailabilityFilter))
+        .where((food) => _matchesPrice(food, _alwaysMinPrice, _alwaysMaxPrice))
         .where(_matchesSearch)
         .toList();
+    return _sortFoods(foods, _alwaysSortOption);
   }
 
   MenuSchedule? _activeScheduleFor(DateTime day) {
@@ -248,8 +292,15 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
   List<Food> get _selectedWeekFoods =>
       _activeScheduleFor(_selectedWeekDay)?.items ?? const [];
 
-  List<Food> get _visibleWeekFoods =>
-      _selectedWeekFoods.where(_matchesSearch).toList();
+  List<Food> get _visibleWeekFoods {
+    final foods = _selectedWeekFoods
+        .where((food) => _matchesCategoryName(food, _weekCategoryName))
+        .where((food) => _matchesAvailability(food, _weekAvailabilityFilter))
+        .where((food) => _matchesPrice(food, _weekMinPrice, _weekMaxPrice))
+        .where(_matchesSearch)
+        .toList();
+    return _sortFoods(foods, _weekSortOption);
+  }
 
   List<String> _categoryOptionsFor(List<Food> foods) {
     final categories = foods
@@ -259,6 +310,170 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
         .toList();
     categories.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     return [_all, ...categories];
+  }
+
+  int _minPriceFor(List<Food> foods) {
+    if (foods.isEmpty) return 0;
+    return foods.map((food) => food.price).reduce((a, b) => a < b ? a : b);
+  }
+
+  int _maxPriceFor(List<Food> foods) {
+    if (foods.isEmpty) return 0;
+    return foods.map((food) => food.price).reduce((a, b) => a > b ? a : b);
+  }
+
+  bool get _hasTodayAdvancedFilters =>
+      _todayMinPrice != null ||
+      _todayMaxPrice != null ||
+      _todaySortOption != 'default';
+
+  bool get _hasAlwaysAdvancedFilters =>
+      _alwaysMinPrice != null ||
+      _alwaysMaxPrice != null ||
+      _alwaysSortOption != 'default';
+
+  bool get _hasWeekFilters =>
+      _weekCategoryName != _all ||
+      _weekAvailabilityFilter != _all ||
+      _weekMinPrice != null ||
+      _weekMaxPrice != null ||
+      _weekSortOption != 'default';
+
+  bool get _hasCurrentTabFilters {
+    switch (_selectedTab) {
+      case _MenuTab.today:
+        return _hasCategoryFilter ||
+            _todayAvailabilityFilter != _all ||
+            _hasTodayAdvancedFilters;
+      case _MenuTab.week:
+        return _hasWeekFilters;
+      case _MenuTab.always:
+        return _hasCategoryFilter ||
+            _alwaysAvailabilityFilter != _all ||
+            _hasAlwaysAdvancedFilters;
+    }
+  }
+
+  List<Food> get _currentFilterFoods {
+    switch (_selectedTab) {
+      case _MenuTab.today:
+        return _scheduledFoods;
+      case _MenuTab.week:
+        return _selectedWeekFoods;
+      case _MenuTab.always:
+        return _alwaysAvailableFoods;
+    }
+  }
+
+  String get _currentFilterCategory {
+    switch (_selectedTab) {
+      case _MenuTab.week:
+        return _weekCategoryName;
+      case _MenuTab.today:
+      case _MenuTab.always:
+        return _selectedCategoryName ?? _all;
+    }
+  }
+
+  String get _currentFilterAvailability {
+    switch (_selectedTab) {
+      case _MenuTab.today:
+        return _todayAvailabilityFilter;
+      case _MenuTab.week:
+        return _weekAvailabilityFilter;
+      case _MenuTab.always:
+        return _alwaysAvailabilityFilter;
+    }
+  }
+
+  String get _currentFilterSortOption {
+    switch (_selectedTab) {
+      case _MenuTab.today:
+        return _todaySortOption;
+      case _MenuTab.week:
+        return _weekSortOption;
+      case _MenuTab.always:
+        return _alwaysSortOption;
+    }
+  }
+
+  int? get _currentFilterMinPrice {
+    switch (_selectedTab) {
+      case _MenuTab.today:
+        return _todayMinPrice;
+      case _MenuTab.week:
+        return _weekMinPrice;
+      case _MenuTab.always:
+        return _alwaysMinPrice;
+    }
+  }
+
+  int? get _currentFilterMaxPrice {
+    switch (_selectedTab) {
+      case _MenuTab.today:
+        return _todayMaxPrice;
+      case _MenuTab.week:
+        return _weekMaxPrice;
+      case _MenuTab.always:
+        return _alwaysMaxPrice;
+    }
+  }
+
+  void _applyCurrentFilterSelection(_MenuFilterSelection selection) {
+    setState(() {
+      switch (_selectedTab) {
+        case _MenuTab.today:
+          _selectedCategoryName =
+              selection.category == _all ? null : selection.category;
+          _todayAvailabilityFilter = selection.availability;
+          _todayMinPrice = selection.minPrice;
+          _todayMaxPrice = selection.maxPrice;
+          _todaySortOption = selection.sortOption;
+          break;
+        case _MenuTab.week:
+          _weekCategoryName = selection.category;
+          _weekAvailabilityFilter = selection.availability;
+          _weekMinPrice = selection.minPrice;
+          _weekMaxPrice = selection.maxPrice;
+          _weekSortOption = selection.sortOption;
+          break;
+        case _MenuTab.always:
+          _selectedCategoryName =
+              selection.category == _all ? null : selection.category;
+          _alwaysAvailabilityFilter = selection.availability;
+          _alwaysMinPrice = selection.minPrice;
+          _alwaysMaxPrice = selection.maxPrice;
+          _alwaysSortOption = selection.sortOption;
+          break;
+      }
+    });
+  }
+
+  Future<void> _openCurrentFilterSheet() async {
+    final foods = _currentFilterFoods;
+    final availableMinPrice = _minPriceFor(foods);
+    final availableMaxPrice = _maxPriceFor(foods);
+    final selection = await showModalBottomSheet<_MenuFilterSelection>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => _MenuFilterSheet(
+        categories: _categoryOptionsFor(foods),
+        selectedCategory: _currentFilterCategory,
+        selectedAvailability: _currentFilterAvailability,
+        availableMinPrice: availableMinPrice,
+        availableMaxPrice: availableMaxPrice,
+        selectedMinPrice: _currentFilterMinPrice ?? availableMinPrice,
+        selectedMaxPrice: _currentFilterMaxPrice ?? availableMaxPrice,
+        selectedSortOption: _currentFilterSortOption,
+      ),
+    );
+
+    if (selection == null || !mounted) return;
+    _applyCurrentFilterSelection(selection);
   }
 
   Future<void> _add(Food food) async {
@@ -622,6 +837,47 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
               ),
             ),
           ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 48,
+            height: 52,
+            child: IconButton(
+              tooltip: 'Filter',
+              onPressed: _openCurrentFilterSheet,
+              style: IconButton.styleFrom(
+                backgroundColor: _hasCurrentTabFilters
+                    ? AppColors.primarySoft
+                    : const Color(0xFFF5F5F7),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    Icons.tune_rounded,
+                    color: _hasCurrentTabFilters
+                        ? _MenuPalette.orange
+                        : AppColors.subText,
+                    size: 22,
+                  ),
+                  if (_hasCurrentTabFilters)
+                    const Positioned(
+                      top: -3,
+                      right: -3,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: _MenuPalette.orange,
+                          shape: BoxShape.circle,
+                        ),
+                        child: SizedBox(width: 7, height: 7),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
           Container(
             width: 58,
             height: 52,
@@ -790,6 +1046,407 @@ class _MenuTabButton extends StatelessWidget {
 // Section Header — carries a small colored dot + accent-colored title so the
 // section instantly reads as "blue = Today's Menu" / "green = Always Available"
 // ─────────────────────────────────────────────────────────────────────────────
+class _MenuFilterSelection {
+  final String category;
+  final String availability;
+  final int? minPrice;
+  final int? maxPrice;
+  final String sortOption;
+
+  const _MenuFilterSelection({
+    required this.category,
+    required this.availability,
+    required this.minPrice,
+    required this.maxPrice,
+    required this.sortOption,
+  });
+}
+
+class _MenuFilterSheet extends StatefulWidget {
+  final List<String> categories;
+  final String selectedCategory;
+  final String selectedAvailability;
+  final int availableMinPrice;
+  final int availableMaxPrice;
+  final int selectedMinPrice;
+  final int selectedMaxPrice;
+  final String selectedSortOption;
+
+  const _MenuFilterSheet({
+    required this.categories,
+    required this.selectedCategory,
+    required this.selectedAvailability,
+    required this.availableMinPrice,
+    required this.availableMaxPrice,
+    required this.selectedMinPrice,
+    required this.selectedMaxPrice,
+    required this.selectedSortOption,
+  });
+
+  @override
+  State<_MenuFilterSheet> createState() => _MenuFilterSheetState();
+}
+
+class _MenuFilterSheetState extends State<_MenuFilterSheet> {
+  late String _category;
+  late String _availability;
+  late String _sortOption;
+  late final TextEditingController _minPriceController;
+  late final TextEditingController _maxPriceController;
+  String? _priceError;
+
+  bool get _hasPriceRange =>
+      widget.availableMaxPrice > widget.availableMinPrice &&
+      widget.availableMaxPrice > 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _category = widget.selectedCategory;
+    _availability = widget.selectedAvailability;
+    _sortOption = widget.selectedSortOption;
+    _minPriceController =
+        TextEditingController(text: widget.selectedMinPrice.toString());
+    _maxPriceController =
+        TextEditingController(text: widget.selectedMaxPrice.toString());
+  }
+
+  @override
+  void dispose() {
+    _minPriceController.dispose();
+    _maxPriceController.dispose();
+    super.dispose();
+  }
+
+  void _clearPriceError() {
+    if (_priceError == null) return;
+    setState(() => _priceError = null);
+  }
+
+  void _clear() {
+    setState(() {
+      _category = 'All';
+      _availability = 'All';
+      _sortOption = 'default';
+      _minPriceController.text = widget.availableMinPrice.toString();
+      _maxPriceController.text = widget.availableMaxPrice.toString();
+      _priceError = null;
+    });
+  }
+
+  void _apply() {
+    int? minPrice;
+    int? maxPrice;
+
+    if (_hasPriceRange) {
+      final minText = _minPriceController.text.trim();
+      final maxText = _maxPriceController.text.trim();
+      final min = int.tryParse(minText);
+      final max = int.tryParse(maxText);
+
+      if (minText.isEmpty || maxText.isEmpty) {
+        setState(() => _priceError = 'Please enter both min and max price.');
+        return;
+      }
+      if (min == null || max == null) {
+        setState(() => _priceError = 'Price must be a valid number.');
+        return;
+      }
+      if (min > max) {
+        setState(
+          () => _priceError = 'Min price must be less than or equal to max.',
+        );
+        return;
+      }
+      if (min < widget.availableMinPrice || max > widget.availableMaxPrice) {
+        setState(
+          () => _priceError =
+              'Price must be between ${CurrencyFormatter.vnd(widget.availableMinPrice)} and ${CurrencyFormatter.vnd(widget.availableMaxPrice)}.',
+        );
+        return;
+      }
+      if (min != widget.availableMinPrice || max != widget.availableMaxPrice) {
+        minPrice = min;
+        maxPrice = max;
+      }
+    }
+
+    Navigator.pop(
+      context,
+      _MenuFilterSelection(
+        category: _category,
+        availability: _availability,
+        minPrice: minPrice,
+        maxPrice: maxPrice,
+        sortOption: _sortOption,
+      ),
+    );
+  }
+
+  Widget _chip({
+    required String label,
+    required bool selected,
+    required VoidCallback onSelected,
+  }) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onSelected(),
+      showCheckmark: false,
+      backgroundColor: const Color(0xFFF5F5F7),
+      selectedColor: _MenuPalette.orange,
+      labelStyle: TextStyle(
+        color: selected ? Colors.white : AppColors.text,
+        fontWeight: FontWeight.w800,
+        fontSize: 13,
+      ),
+      side: BorderSide(
+        color: selected ? _MenuPalette.orange : AppColors.border,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+    );
+  }
+
+  Widget _section(String title, Widget child) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.text,
+            fontWeight: FontWeight.w900,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 10),
+        child,
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          14,
+          24,
+          MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Filter',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _section(
+                'Category',
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: widget.categories
+                      .map(
+                        (category) => _chip(
+                          label: category,
+                          selected:
+                              _category.toLowerCase() == category.toLowerCase(),
+                          onSelected: () => setState(() {
+                            _category = category;
+                          }),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+              const SizedBox(height: 20),
+              _section(
+                'Availability',
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: ['All', 'Available', 'Sold out']
+                      .map(
+                        (option) => _chip(
+                          label: option,
+                          selected: _availability == option,
+                          onSelected: () => setState(() {
+                            _availability = option;
+                          }),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+              const SizedBox(height: 20),
+              _section(
+                'Price',
+                _hasPriceRange
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_priceError != null) ...[
+                            Text(
+                              _priceError!,
+                              style: const TextStyle(
+                                color: AppColors.error,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _minPriceController,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  onChanged: (_) => _clearPriceError(),
+                                  decoration: InputDecoration(
+                                    labelText: 'Min price',
+                                    suffixText: 'VND',
+                                    filled: true,
+                                    fillColor: const Color(0xFFF5F5F7),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _maxPriceController,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  onChanged: (_) => _clearPriceError(),
+                                  decoration: InputDecoration(
+                                    labelText: 'Max price',
+                                    suffixText: 'VND',
+                                    filled: true,
+                                    fillColor: const Color(0xFFF5F5F7),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    : const Text(
+                        'No price range available',
+                        style: TextStyle(color: AppColors.subText),
+                      ),
+              ),
+              const SizedBox(height: 20),
+              _section(
+                'Sort by',
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final item in const [
+                      {'key': 'default', 'label': 'Default'},
+                      {'key': 'price_asc', 'label': 'Price low to high'},
+                      {'key': 'price_desc', 'label': 'Price high to low'},
+                      {'key': 'name_asc', 'label': 'Name A-Z'},
+                    ])
+                      _chip(
+                        label: item['label']!,
+                        selected: _sortOption == item['key'],
+                        onSelected: () => setState(() {
+                          _sortOption = item['key']!;
+                        }),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 26),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _clear,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: AppColors.border),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text(
+                        'Clear',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: _apply,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _MenuPalette.orange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text(
+                        'Apply',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MenuFilterChip extends StatelessWidget {
   final String label;
   final bool selected;

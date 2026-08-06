@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
@@ -31,7 +32,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   final RatingService _ratingService = RatingService(ApiClient());
 
   Order? _order;
-  bool _hasRatedOrder = false;
+  bool _hasRatedAllItems = false;
   bool _isLoading = true;
   String? _errorMessage;
   Timer? _pollingTimer;
@@ -76,12 +77,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       final token = await AuthStorage.getToken();
       final order =
           await _orderService.getOrderById(widget.orderId, token: token);
-      final hasRatedOrder = await _hasExistingOrderRating(order.id, token);
+      final hasRatedAllItems = await _hasReviewedAllFoodItems(order, token);
 
       if (!mounted) return;
       setState(() {
         _order = order;
-        _hasRatedOrder = hasRatedOrder;
+        _hasRatedAllItems = hasRatedAllItems;
         if (!quiet) _isLoading = false;
       });
       if (!quiet) _slideController.forward(from: 0);
@@ -97,16 +98,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     }
   }
 
-  Future<bool> _hasExistingOrderRating(String orderId, String? token) async {
+  Future<bool> _hasReviewedAllFoodItems(Order order, String? token) async {
     if (token == null || token.isEmpty) return false;
+
     try {
-      final result = await _ratingService.getMyRatingsPage(
+      final items = await _ratingService.getReviewableItems(
+        orderId: order.id,
         token: token,
-        orderId: orderId,
-        ratingType: 'ORDER',
-        limit: 1,
       );
-      return result.items.isNotEmpty;
+      return items.isNotEmpty && items.every((item) => item.isReviewed);
     } catch (_) {
       return false;
     }
@@ -352,7 +352,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     final canCancel = s == 'PENDING_PAYMENT' || s == 'PAID';
     final canRate = s == 'COMPLETED' &&
         order.paymentStatus.toUpperCase() == 'PAID' &&
-        !_hasRatedOrder;
+        !_hasRatedAllItems;
     final meta = _statusMeta(order.status);
 
     return Scaffold(
@@ -378,6 +378,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // ── Order Code Banner ─────────────────────
+                        // ── QR Code ─────────────────────────────
+                        if (order.code.isNotEmpty) ...[
+                          _buildSectionTitle('QR Code'),
+                          const SizedBox(height: 12),
+                          _buildQRCodeCard(order),
+                          const SizedBox(height: 24),
+                        ],
                         // ── Timeline ──────────────────────────────
                         _buildSectionTitle('Order Timeline'),
                         const SizedBox(height: 12),
@@ -681,6 +688,65 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
             isLast: true,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQRCodeCard(Order order) {
+    return Center(
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              const Text(
+                'Scan for Counter Staff',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.subText,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border, width: 1),
+                ),
+                child: QrImageView(
+                  data: order.code,
+                  version: QrVersions.auto,
+                  size: 200.0,
+                  backgroundColor: Colors.white,
+                  errorCorrectionLevel: QrErrorCorrectLevel.M,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Order Code: ${order.code}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.text,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
