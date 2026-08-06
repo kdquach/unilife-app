@@ -88,7 +88,16 @@ class _MainShellState extends ConsumerState<MainShell> {
   }
 
   Future<void> _openNotifications() async {
-    await Navigator.pushNamed(context, NotificationsScreen.routeName);
+    final navigator = Navigator.of(context);
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) {
+      if (!mounted) return;
+      navigator.pushNamed(LoginScreen.routeName);
+      return;
+    }
+
+    if (!mounted) return;
+    await navigator.pushNamed(NotificationsScreen.routeName);
     await _refreshNotificationCount();
   }
 
