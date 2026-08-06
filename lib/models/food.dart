@@ -2,11 +2,32 @@ enum FoodKind { menuFood, alwaysAvailable }
 
 enum FoodStatus { available, soldOut, comingSoon, outOfStock }
 
+String _categoryNameFromRaw(dynamic categoryRaw) {
+  if (categoryRaw is Map<String, dynamic>) {
+    return categoryRaw['name'] as String? ?? '';
+  }
+  if (categoryRaw is String) return categoryRaw;
+  return '';
+}
+
+String? _categoryIdFromRaw(dynamic categoryRaw) {
+  if (categoryRaw is Map<String, dynamic>) {
+    final id = categoryRaw['_id'] ??
+        categoryRaw['categoryId'] ??
+        categoryRaw['foodCategoryId'] ??
+        categoryRaw['id'];
+    final value = id?.toString();
+    return value != null && value.isNotEmpty ? value : null;
+  }
+  return null;
+}
+
 class Food {
   final String id;
   final String? menuScheduleItemId;
   final String name;
   final String category;
+  final String? categoryId;
   final String description;
   final int price;
   final FoodKind kind;
@@ -16,6 +37,7 @@ class Food {
   final String? mealType;
   final String? menuDateLabel;
   final String? imageUrl;
+  final String? createdAt;
   final double rating;
 
   const Food({
@@ -23,6 +45,7 @@ class Food {
     this.menuScheduleItemId,
     required this.name,
     required this.category,
+    this.categoryId,
     required this.description,
     required this.price,
     required this.kind,
@@ -32,6 +55,7 @@ class Food {
     this.mealType,
     this.menuDateLabel,
     this.imageUrl,
+    this.createdAt,
     this.rating = 4.8,
   });
 
@@ -84,9 +108,6 @@ class Food {
     }
 
     final categoryRaw = json['categoryId'] ?? json['category'];
-    final categoryName = categoryRaw is Map<String, dynamic>
-        ? (categoryRaw['name'] as String? ?? '')
-        : (categoryRaw is String ? categoryRaw : '');
 
     final parsedId = json['_id']?.toString() ?? 
                      json['foodId']?.toString() ?? 
@@ -97,13 +118,15 @@ class Food {
     return Food(
       id: parsedId,
       name: json['name'] as String? ?? '',
-      category: categoryName,
+      category: _categoryNameFromRaw(categoryRaw),
+      categoryId: _categoryIdFromRaw(categoryRaw),
       description: json['description'] as String? ?? '',
       price: ((json['price'] as num?) ?? 0).toInt(),
       kind: isMenuItem ? FoodKind.menuFood : FoodKind.alwaysAvailable,
       status: status,
       stockQuantity: stockQty,
       imageUrl: json['imageUrl'] as String?,
+      createdAt: json['createdAt']?.toString(),
       rating: 4.8,
     );
   }
@@ -126,9 +149,6 @@ class Food {
     final price = ((foodMap['price'] as num?) ?? 0).toInt();
 
     final categoryRaw = foodMap['categoryId'] ?? foodMap['category'];
-    final categoryName = categoryRaw is Map<String, dynamic>
-        ? (categoryRaw['name'] as String? ?? '')
-        : (categoryRaw is String ? categoryRaw : '');
 
     FoodStatus status = FoodStatus.available;
     if (!isActive || (remainingCount != null && remainingCount <= 0)) {
@@ -139,7 +159,8 @@ class Food {
       id: foodId,
       menuScheduleItemId: menuScheduleItemId.isNotEmpty ? menuScheduleItemId : null,
       name: name,
-      category: categoryName,
+      category: _categoryNameFromRaw(categoryRaw),
+      categoryId: _categoryIdFromRaw(categoryRaw),
       description: description,
       price: price,
       kind: FoodKind.menuFood,
@@ -148,6 +169,7 @@ class Food {
       mealType: json['mealType']?.toString() ?? 'Lunch',
       menuDateLabel: 'Today',
       imageUrl: foodMap['imageUrl'] as String?,
+      createdAt: foodMap['createdAt']?.toString(),
     );
   }
 
