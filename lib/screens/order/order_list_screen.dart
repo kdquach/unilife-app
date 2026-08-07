@@ -57,10 +57,12 @@ class _OrderListScreenState extends State<OrderListScreen> {
     try {
       final token = await AuthStorage.getToken();
       final orders = await _orderService.getOrders(token: token);
+      final syncedOrders =
+          await _orderService.syncStaleActiveOrders(orders, token: token);
       if (!mounted) return;
-      final filtered = _computeFiltered(orders, _selectedTab);
+      final filtered = _computeFiltered(syncedOrders, _selectedTab);
       setState(() {
-        _allOrders = orders;
+        _allOrders = syncedOrders;
         _filteredOrders = filtered;
         _isLoading = false;
       });
@@ -75,10 +77,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
 
   List<Order> _computeFiltered(List<Order> orders, String tab) {
     if (tab == 'Active') {
-      return orders.where((o) {
-        final s = o.status.toUpperCase();
-        return s != 'COMPLETED' && s != 'CANCELLED' && s != 'EXPIRED';
-      }).toList();
+      return orders.where((o) => isActiveOrderStatus(o.status)).toList();
     } else if (tab == 'Completed') {
       return orders
           .where((o) => o.status.toUpperCase() == 'COMPLETED')

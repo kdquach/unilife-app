@@ -75,8 +75,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
 
     try {
       final token = await AuthStorage.getToken();
-      final order =
+      final fetchedOrder =
           await _orderService.getOrderById(widget.orderId, token: token);
+      final order =
+          await _orderService.syncStaleActiveOrder(fetchedOrder, token: token);
       final hasRatedAllItems = await _hasReviewedAllFoodItems(order, token);
 
       if (!mounted) return;

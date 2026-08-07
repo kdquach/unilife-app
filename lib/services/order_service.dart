@@ -1,5 +1,17 @@
+import '../core/utils/date_utils.dart';
 import '../models/order.dart';
 import 'api_client.dart';
+
+bool isActiveOrderStatus(String status) {
+  final s = status.toUpperCase();
+  return s != 'COMPLETED' && s != 'CANCELLED' && s != 'EXPIRED';
+}
+
+bool isStaleActiveOrder(Order order) {
+  if (!isActiveOrderStatus(order.status)) return false;
+  if (order.createdAt == null) return false;
+  return isBeforeLocalDay(order.createdAt!, DateTime.now());
+}
 
 class OrderService {
   OrderService(this._client);
@@ -36,6 +48,43 @@ class OrderService {
 
   Future<void> cancelOrder(String id, {String? token}) async {
     await _client.patchJson('/orders/$id', {'status': 'CANCELLED'}, token: token);
+  }
+
+  Future<Order> syncStaleActiveOrder(Order order, {String? token}) async {
+    if (!isStaleActiveOrder(order)) return order;
+
+    try {
+      await cancelOrder(order.id, token: token);
+    } catch (_) {
+      return order;
+    }
+
+    return order.copyWith(status: 'CANCELLED');
+  }
+
+  Future<List<Order>> syncStaleActiveOrders(
+    List<Order> orders, {
+    String? token,
+  }) async {
+    final staleOrders =
+        orders.where(isStaleActiveOrder).map((order) => order.id).toSet();
+    if (staleOrders.isEmpty) return orders;
+
+    await Future.wait(
+      staleOrders.map((id) async {
+        try {
+          await cancelOrder(id, token: token);
+        } catch (_) {}
+      }),
+    );
+
+    return orders
+        .map(
+          (order) => staleOrders.contains(order.id)
+              ? order.copyWith(status: 'CANCELLED')
+              : order,
+        )
+        .toList();
   }
 
   Future<Order> checkout({String? token}) async {
