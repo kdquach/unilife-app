@@ -9,10 +9,12 @@ import '../../core/utils/currency_formatter.dart';
 import '../../models/order.dart';
 import '../../models/cart_item.dart';
 import '../../models/food.dart';
+
 import '../../services/api_client.dart';
 import '../../services/auth_storage.dart';
 import '../../services/order_service.dart';
 import '../../services/rating_service.dart';
+import '../../services/food_service.dart';
 import '../../states/cart_provider.dart';
 import '../../widgets/app_button.dart';
 import '../rating/create_rating_screen.dart';
@@ -33,6 +35,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
     with TickerProviderStateMixin {
   final OrderService _orderService = OrderService(ApiClient());
   final RatingService _ratingService = RatingService(ApiClient());
+  final FoodService _foodService = FoodService(ApiClient());
 
   Order? _order;
   bool _hasRatedAllItems = false;
@@ -198,50 +201,157 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
     setState(() => _isReordering = true);
 
     try {
-      // Add all items from the order to the cart
+      final token = await AuthStorage.getToken();
+      
+      // Get today's menu items to check availability
+      final todayMenuItems = await _foodService.getTodayMenuFoods(token: token);
+      final todayMenuIds = todayMenuItems.map((item) => item.id).toSet();
+      
+      List<String> unavailableItems = [];
+      List<String> outOfStockItems = [];
+      int successfullyAdded = 0;
+
+      // Check each item before adding to cart
       for (final item in _order!.items) {
-        final cartNotifier = ref.read(cartProvider.notifier);
-        await cartNotifier.addItem(
-          item.food,
-          quantity: item.quantity,
-          notify: false,
-        );
+        final food = item.food;
+        
+        // Check if item is available in today's menu (for menu food)
+        if (food.isMenuFood) {
+          // Check if the food exists in today's menu by ID
+          if (!todayMenuIds.contains(food.id)) {
+            unavailableItems.add(food.name);
+            continue;
+          }
+          
+          // Find the today's menu item to get fresh data
+          final todayMenuItem = todayMenuItems.firstWhere(
+            (f) => f.id == food.id,
+            orElse: () => food,
+          );
+          
+          // For menu food, use the current menuScheduleItemId from today's menu
+          final updatedFood = food.copyWith(
+            menuScheduleItemId: todayMenuItem.menuScheduleItemId,
+            status: todayMenuItem.status,
+            remainingServings: todayMenuItem.remainingServings,
+          );
+          
+          // Add item to cart
+          final cartNotifier = ref.read(cartProvider.notifier);
+          await cartNotifier.addItem(
+            updatedFood,
+            quantity: item.quantity,
+            notify: false,
+          );
+          successfullyAdded++;
+        } else {
+          // For always available items, check stock
+          if (food.status == FoodStatus.outOfStock ||
+              (food.stockQuantity != null && food.stockQuantity! <= 0)) {
+            outOfStockItems.add(food.name);
+            continue;
+          }
+
+          // Add item to cart
+          final cartNotifier = ref.read(cartProvider.notifier);
+          await cartNotifier.addItem(
+            food,
+            quantity: item.quantity,
+            notify: false,
+          );
+          successfullyAdded++;
+        }
       }
 
-      // Show success message
+      // Show appropriate message based on results
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: const Color(0xFF1E293B),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            content: const Row(
-              children: [
-                Icon(Icons.check_circle_rounded,
-                    color: Color(0xFF86EFAC), size: 22),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Items added to cart',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13)),
-                    ],
+        if (unavailableItems.isEmpty && outOfStockItems.isEmpty) {
+          // All items added successfully
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: const Color(0xFF1E293B),
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle_rounded,
+                      color: Color(0xFF86EFAC), size: 22),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Items added to cart',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13)),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        );
+          );
 
-        // Navigate to cart screen
-        Navigator.pushNamed(context, CartScreen.routeName);
+          // Navigate to cart screen
+          Navigator.pushNamed(context, CartScreen.routeName);
+        } else {
+          // Some items were unavailable or out of stock
+          String message = '';
+          if (unavailableItems.isNotEmpty) {
+            message += 'Not in today\'s menu: ${unavailableItems.join(", ")}. ';
+          }
+          if (outOfStockItems.isNotEmpty) {
+            message += 'Out of stock: ${outOfStockItems.join(", ")}. ';
+          }
+          if (successfullyAdded > 0) {
+            message += '($successfullyAdded item(s) added to cart)';
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: const Color(0xFF1E293B),
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              content: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Color(0xFFFCD34D), size: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('Some items unavailable',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13)),
+                        const SizedBox(height: 2),
+                        Text(message,
+                            style: const TextStyle(
+                                color: Color(0xFFCBD5E1), fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+
+          // Navigate to cart if any items were added
+          if (successfullyAdded > 0) {
+            Navigator.pushNamed(context, CartScreen.routeName);
+          }
+        }
       }
     } catch (error) {
       if (mounted) return;
