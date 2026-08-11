@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -12,10 +13,12 @@ import '../../services/api_client.dart';
 import '../../services/auth_storage.dart';
 import '../../services/order_service.dart';
 import '../../services/rating_service.dart';
+import '../../states/cart_provider.dart';
 import '../../widgets/app_button.dart';
 import '../rating/create_rating_screen.dart';
+import '../cart/cart_screen.dart';
 
-class OrderDetailScreen extends StatefulWidget {
+class OrderDetailScreen extends ConsumerStatefulWidget {
   static const String routeName = '/order-detail';
 
   final String orderId;
@@ -23,10 +26,10 @@ class OrderDetailScreen extends StatefulWidget {
   const OrderDetailScreen({super.key, required this.orderId});
 
   @override
-  State<OrderDetailScreen> createState() => _OrderDetailScreenState();
+  ConsumerState<OrderDetailScreen> createState() => _OrderDetailScreenState();
 }
 
-class _OrderDetailScreenState extends State<OrderDetailScreen>
+class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
     with TickerProviderStateMixin {
   final OrderService _orderService = OrderService(ApiClient());
   final RatingService _ratingService = RatingService(ApiClient());
@@ -34,6 +37,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   Order? _order;
   bool _hasRatedAllItems = false;
   bool _isLoading = true;
+  bool _isReordering = false;
   String? _errorMessage;
   Timer? _pollingTimer;
 
@@ -185,6 +189,107 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
           ),
         ),
       );
+    }
+  }
+
+  Future<void> _reorder() async {
+    if (_order == null) return;
+    
+    setState(() => _isReordering = true);
+
+    try {
+      // Add all items from the order to the cart
+      for (final item in _order!.items) {
+        final cartNotifier = ref.read(cartProvider.notifier);
+        await cartNotifier.addItem(
+          item.food,
+          quantity: item.quantity,
+          notify: false,
+        );
+      }
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF1E293B),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle_rounded,
+                    color: Color(0xFF86EFAC), size: 22),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Items added to cart',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+
+        // Navigate to cart screen
+        Navigator.pushNamed(context, CartScreen.routeName);
+      }
+    } catch (error) {
+      if (mounted) return;
+      
+      final cleanMessage = error is ApiException
+          ? error.message
+          : error
+              .toString()
+              .replaceFirst('ApiException: ', '')
+              .replaceFirst('Exception: ', '');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF1E293B),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline_rounded,
+                  color: Color(0xFFFCA5A5), size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Failed to add items',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13)),
+                    const SizedBox(height: 2),
+                    Text(cleanMessage,
+                        style: const TextStyle(
+                            color: Color(0xFFCBD5E1), fontSize: 12)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isReordering = false);
+      }
     }
   }
 
@@ -355,6 +460,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     final canRate = s == 'COMPLETED' &&
         order.paymentStatus.toUpperCase() == 'PAID' &&
         !_hasRatedAllItems;
+    final canReorder = s == 'COMPLETED' || s == 'CANCELLED';
     final meta = _statusMeta(order.status);
 
     return Scaffold(
@@ -403,7 +509,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                         _buildInfoCard(order),
                         const SizedBox(height: 28),
                         // ── Action Buttons ────────────────────────
-                        _buildActions(context, order, canCancel, canRate),
+                        _buildActions(context, order, canCancel, canRate, canReorder),
                         const SizedBox(height: 16),
                       ],
                     ),
@@ -896,10 +1002,38 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   }
 
   Widget _buildActions(
-      BuildContext context, Order order, bool canCancel, bool canRate) {
+      BuildContext context, Order order, bool canCancel, bool canRate, bool canReorder) {
     return Column(
       children: [
-        if (canRate)
+        if (canReorder)
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton.icon(
+              onPressed: _isReordering ? null : _reorder,
+              icon: _isReordering
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.refresh_rounded, size: 18),
+              label: Text(_isReordering ? 'Adding...' : 'Re-order',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+          ),
+        if (canRate) ...[
+          if (canReorder) const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             height: 52,
@@ -923,8 +1057,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
             ),
           ),
+        ],
         if (canCancel) ...[
-          if (canRate) const SizedBox(height: 10),
+          if (canRate || canReorder) const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             height: 52,
@@ -1277,5 +1412,3 @@ class _PulsingInnerDotState extends State<_PulsingInnerDot>
     );
   }
 }
-
-// ─── Live Chip ────────────────────────────────────────────────────────────────
