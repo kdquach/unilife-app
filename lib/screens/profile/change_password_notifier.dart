@@ -6,6 +6,12 @@ import '../../services/auth_storage.dart';
 
 class ChangePasswordNotifier extends AsyncNotifier<void> {
   final _authService = AuthService(ApiClient());
+  Map<String, String?> _fieldErrors = {
+    'currentPassword': null,
+    'newPassword': null,
+  };
+
+  Map<String, String?> get fieldErrors => _fieldErrors;
 
   @override
   FutureOr<void> build() {
@@ -17,25 +23,61 @@ class ChangePasswordNotifier extends AsyncNotifier<void> {
     required String newPassword,
     required String confirmPassword,
   }) async {
+    // Clear field errors
+    _fieldErrors = {
+      'currentPassword': null,
+      'newPassword': null,
+    };
+
     // 1. Client-side validation
     if (currentPassword.isEmpty) {
-      state = AsyncValue.error('Current password is required', StackTrace.current);
+      _fieldErrors['currentPassword'] = 'Current password is required';
+      state = const AsyncValue.data(null);
       return false;
     }
     if (newPassword.isEmpty) {
-      state = AsyncValue.error('New password is required', StackTrace.current);
+      _fieldErrors['newPassword'] = 'New password is required';
+      state = const AsyncValue.data(null);
       return false;
     }
     if (newPassword.length < 8) {
-      state = AsyncValue.error('New password must be at least 8 characters long', StackTrace.current);
+      _fieldErrors['newPassword'] = 'New password must be at least 8 characters long';
+      state = const AsyncValue.data(null);
+      return false;
+    }
+    if (newPassword.contains(' ')) {
+      _fieldErrors['newPassword'] = 'New password must not contain spaces';
+      state = const AsyncValue.data(null);
+      return false;
+    }
+    if (!newPassword.contains(RegExp(r'[a-z]'))) {
+      _fieldErrors['newPassword'] = 'New password must contain at least one lowercase letter';
+      state = const AsyncValue.data(null);
+      return false;
+    }
+    if (!newPassword.contains(RegExp(r'[A-Z]'))) {
+      _fieldErrors['newPassword'] = 'New password must contain at least one uppercase letter';
+      state = const AsyncValue.data(null);
+      return false;
+    }
+    if (!newPassword.contains(RegExp(r'[0-9]'))) {
+      _fieldErrors['newPassword'] = 'New password must contain at least one number';
+      state = const AsyncValue.data(null);
+      return false;
+    }
+    if (!newPassword.contains(RegExp(r'[^A-Za-z0-9]'))) {
+      _fieldErrors['newPassword'] = 'New password must contain at least one special character';
+      state = const AsyncValue.data(null);
       return false;
     }
     if (newPassword == currentPassword) {
-      state = AsyncValue.error('New password must be different from current password', StackTrace.current);
+      _fieldErrors['newPassword'] = 'New password must be different from current password';
+      state = const AsyncValue.data(null);
       return false;
     }
     if (newPassword != confirmPassword) {
-      state = AsyncValue.error('Confirm password does not match new password', StackTrace.current);
+      _fieldErrors['newPassword'] = 'Confirm password does not match new password';
+      state = const AsyncValue.data(null);
       return false;
     }
 
@@ -66,7 +108,19 @@ class ChangePasswordNotifier extends AsyncNotifier<void> {
         );
       }
     } on ApiException catch (error) {
-      state = AsyncValue.error(error.message, StackTrace.current);
+      // Parse field errors from backend response
+      if (error.errors != null && error.errors is Map<String, dynamic>) {
+        final errors = error.errors as Map<String, dynamic>;
+        if (errors['currentPassword'] != null) {
+          _fieldErrors['currentPassword'] = errors['currentPassword'].toString();
+        }
+        if (errors['newPassword'] != null) {
+          _fieldErrors['newPassword'] = errors['newPassword'].toString();
+        }
+        state = const AsyncValue.data(null);
+      } else {
+        state = AsyncValue.error(error.message, StackTrace.current);
+      }
       return false;
     } catch (error) {
       state = AsyncValue.error(error.toString(), StackTrace.current);
