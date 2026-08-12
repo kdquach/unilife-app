@@ -32,8 +32,16 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   bool _isResetting = false;
   bool _isResending = false;
+
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+
   String? _errorMessage;
   String? _successMessage;
+  Map<String, String?> _fieldErrors = {
+    'otp': null,
+    'newPassword': null,
+  };
 
   @override
   void dispose() {
@@ -48,6 +56,15 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     final otp = _otpController.text.trim();
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
+
+    setState(() {
+      _errorMessage = null;
+      _fieldErrors = {
+        'otp': null,
+        'newPassword': null,
+      };
+    });
+
     final validationMessage = _validateInput(
       otp: otp,
       password: password,
@@ -61,7 +78,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     setState(() {
       _isResetting = true;
-      _errorMessage = null;
       _successMessage = null;
     });
 
@@ -82,7 +98,17 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       );
     } on ApiException catch (error) {
       if (!mounted) return;
-      setState(() => _errorMessage = error.message);
+      // Parse field errors from backend response
+      if (error.errors != null && error.errors is Map<String, dynamic>) {
+        setState(() {
+          _fieldErrors = {
+            'otp': _formatError(error.errors!['otp']),
+            'newPassword': _formatError(error.errors!['newPassword']),
+          };
+        });
+      } else {
+        setState(() => _errorMessage = error.message);
+      }
     } catch (_) {
       if (!mounted) return;
       setState(
@@ -128,13 +154,34 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     if (otp.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
       return 'Please fill in all fields.';
     }
-    if (password.length < 6) {
-      return 'Password must be at least 6 characters.';
+    // Password validation: at least 8 chars, uppercase, lowercase, number, special char, no spaces
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters.';
+    }
+    if (password.contains(' ')) {
+      return 'Password must not contain spaces.';
+    }
+    if (!password.contains(RegExp(r'[a-z]'))) {
+      return 'Password must contain at least one lowercase letter.';
+    }
+    if (!password.contains(RegExp(r'[A-Z]'))) {
+      return 'Password must contain at least one uppercase letter.';
+    }
+    if (!password.contains(RegExp(r'[0-9]'))) {
+      return 'Password must contain at least one number.';
+    }
+    if (!password.contains(RegExp(r'[^A-Za-z0-9]'))) {
+      return 'Password must contain at least one special character.';
     }
     if (password != confirmPassword) {
       return 'Confirm password does not match.';
     }
     return null;
+  }
+
+  String? _formatError(dynamic error) {
+    if (error == null) return null;
+    return error.toString();
   }
 
   @override
@@ -168,29 +215,91 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               style: const TextStyle(color: AppColors.subText),
             ),
             const SizedBox(height: 24),
-            TextField(
-              controller: _otpController,
-              keyboardType: TextInputType.number,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'OTP code',
-                hintText: '123456',
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: _otpController,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'OTP code',
+                    hintText: '123456',
+                  ),
+                ),
+                if (_fieldErrors['otp'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12, top: 4),
+                    child: Text(
+                      _fieldErrors['otp']!,
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 12,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.visible,
+                    ),
+                  ),
+                SizedBox(height: _fieldErrors['otp'] != null ? 20 : 14),
+              ],
             ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(labelText: 'New password'),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    labelText: 'New password',
+                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                    suffixIcon: IconButton(
+                      onPressed: () => setState(
+                        () => _obscurePassword = !_obscurePassword,
+                      ),
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                      ),
+                    ),
+                  ),
+                ),
+                if (_fieldErrors['newPassword'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12, top: 4),
+                    child: Text(
+                      _fieldErrors['newPassword']!,
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 12,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.visible,
+                    ),
+                  ),
+                SizedBox(height: _fieldErrors['newPassword'] != null ? 20 : 14),
+              ],
             ),
-            const SizedBox(height: 14),
             TextField(
               controller: _confirmPasswordController,
-              obscureText: true,
+              obscureText: _obscureConfirmPassword,
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _handleResetPassword(),
-              decoration: const InputDecoration(labelText: 'Confirm password'),
+              decoration: InputDecoration(
+                labelText: 'Confirm password',
+                prefixIcon: const Icon(Icons.lock_reset_rounded),
+                suffixIcon: IconButton(
+                  onPressed: () => setState(
+                    () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                  ),
+                  icon: Icon(
+                    _obscureConfirmPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                ),
+              ),
             ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 16),
