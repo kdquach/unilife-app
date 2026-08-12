@@ -354,7 +354,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
         }
       }
     } catch (error) {
-      if (mounted) return;
+      if (!mounted) return;
       
       final cleanMessage = error is ApiException
           ? error.message

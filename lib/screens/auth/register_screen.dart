@@ -28,6 +28,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   String? _errorMessage;
+  Map<String, String?> _fieldErrors = {
+    'fullName': null,
+    'email': null,
+    'phone': null,
+    'password': null,
+  };
 
   @override
   void dispose() {
@@ -47,6 +53,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
+
+setState(() {
+    _errorMessage = null;
+    _fieldErrors = {
+      'fullName': null,
+      'email': null,
+      'phone': null,
+      'password': null,
+    };
+  });
+
+
     final validationMessage = _validateInput(
       fullName: fullName,
       email: email,
@@ -60,9 +78,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    _isLoading = true;
+  });
 
     try {
       await _authService.register(
@@ -79,7 +96,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
     } on ApiException catch (error) {
       if (!mounted) return;
-      setState(() => _errorMessage = error.message);
+      // Parse field errors from backend response
+      if (error.errors != null && error.errors is Map<String, dynamic>) {
+        setState(() {
+          _fieldErrors = {
+            'fullName': _formatError(error.errors!['fullName']),
+            'email': _formatError(error.errors!['email']),
+            'phone': _formatError(error.errors!['phone']),
+            'password': _formatError(error.errors!['password']),
+          };
+        });
+      } else {
+        setState(() => _errorMessage = error.message);
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() => _errorMessage = 'Register failed. Please try again.');
@@ -104,16 +133,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
         confirmPassword.isEmpty) {
       return 'Please fill in all fields.';
     }
-    if (!email.contains('@') || !email.contains('.')) {
-      return 'Please enter a valid email address.';
-    }
-    if (password.length < 6) {
-      return 'Password must be at least 6 characters.';
+    // if (!email.contains('@') || !email.contains('.')) {
+    //   return 'Please enter a valid email address.';
+    // }
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters.';
     }
     if (password != confirmPassword) {
       return 'Confirm password does not match.';
     }
     return null;
+  }
+
+  String? _formatError(dynamic error) {
+    if (error == null) return null;
+    return error.toString();
   }
 
   @override
@@ -141,56 +175,129 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
             const SizedBox(height: 28),
-            TextField(
-              controller: _fullNameController,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Full name',
-                hintText: 'Nguyen Khanh Duy',
-                prefixIcon: Icon(Icons.person_outline_rounded),
-              ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                hintText: 'student@unilife.edu',
-                prefixIcon: Icon(Icons.email_outlined),
-              ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Phone',
-                hintText: '0901234567',
-                prefixIcon: Icon(Icons.phone_outlined),
-              ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _passwordController,
-              obscureText: _obscurePassword,
-              textInputAction: TextInputAction.next,
-              decoration: InputDecoration(
-                labelText: 'Password',
-                prefixIcon: const Icon(Icons.lock_outline_rounded),
-                suffixIcon: IconButton(
-                  onPressed: () => setState(
-                    () => _obscurePassword = !_obscurePassword,
-                  ),
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: _fullNameController,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    labelText: 'Full name',
+                    hintText: 'Nguyen Khanh Duy',
+                    prefixIcon: const Icon(Icons.person_outline_rounded),
                   ),
                 ),
-              ),
+                if (_fieldErrors['fullName'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12, top: 4),
+                    child: Text(
+                      _fieldErrors['fullName']!,
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 12,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.visible,
+                    ),
+                  ),
+                SizedBox(height: _fieldErrors['fullName'] != null ? 20 : 14),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    hintText: 'student@unilife.edu',
+                    prefixIcon: const Icon(Icons.email_outlined),
+                  ),
+                ),
+                if (_fieldErrors['email'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12, top: 4),
+                    child: Text(
+                      _fieldErrors['email']!,
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 12,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.visible,
+                    ),
+                  ),
+                SizedBox(height: _fieldErrors['email'] != null ? 20 : 14),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    labelText: 'Phone',
+                    hintText: '0901234567',
+                    prefixIcon: const Icon(Icons.phone_outlined),
+                  ),
+                ),
+                if (_fieldErrors['phone'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12, top: 4),
+                    child: Text(
+                      _fieldErrors['phone']!,
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 12,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.visible,
+                    ),
+                  ),
+                SizedBox(height: _fieldErrors['phone'] != null ? 20 : 14),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                    suffixIcon: IconButton(
+                      onPressed: () => setState(
+                        () => _obscurePassword = !_obscurePassword,
+                      ),
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                      ),
+                    ),
+                  ),
+                ),
+                if (_fieldErrors['password'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12, top: 4),
+                    child: Text(
+                      _fieldErrors['password']!,
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 12,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.visible,
+                    ),
+                  ),
+                SizedBox(height: _fieldErrors['password'] != null ? 20 : 14),
+              ],
             ),
             const SizedBox(height: 14),
             TextField(
