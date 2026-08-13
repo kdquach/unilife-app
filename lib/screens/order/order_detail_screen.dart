@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -599,11 +600,23 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // ── Order Code Banner ─────────────────────
-                        // ── QR Code ─────────────────────────────
-                        if (order.code.isNotEmpty) ...[
-                          _buildSectionTitle('QR Code'),
+                        // ── Payment QR Code (only show when payment is pending and order not cancelled)
+                        if (order.status.toUpperCase() != 'CANCELLED' &&
+                            order.paymentStatus.toUpperCase() == 'PENDING' &&
+                            order.paymentInfo?.qrCodeUrl != null &&
+                            order.paymentInfo!.qrCodeUrl!.isNotEmpty) ...[
+                          _buildSectionTitle('Payment QR Code'),
                           const SizedBox(height: 12),
-                          _buildQRCodeCard(order),
+                          _buildPaymentQRCodeCard(order),
+                          const SizedBox(height: 24),
+                        ],
+                        // ── Order Code QR (show when payment is completed/confirmed and order not cancelled)
+                        if (order.status.toUpperCase() != 'CANCELLED' &&
+                            order.paymentStatus.toUpperCase() != 'PENDING' &&
+                            order.code.isNotEmpty) ...[
+                          _buildSectionTitle('Order Code'),
+                          const SizedBox(height: 12),
+                          _buildOrderCodeCard(order),
                           const SizedBox(height: 24),
                         ],
                         // ── Timeline ──────────────────────────────
@@ -913,7 +926,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
     );
   }
 
-  Widget _buildQRCodeCard(Order order) {
+  Widget _buildOrderCodeCard(Order order) {
     return Center(
       child: Container(
         decoration: BoxDecoration(
@@ -969,6 +982,134 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPaymentQRCodeCard(Order order) {
+    if (order.paymentInfo?.qrCodeUrl == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 400),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Bank Info Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.account_balance, color: AppColors.primary, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  order.paymentInfo?.bankName ?? 'Vietcombank',
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // QR Code Image
+            Container(
+              width: 240,
+              height: 240,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.15), width: 1.5),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  order.paymentInfo!.qrCodeUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.broken_image, size: 48, color: Colors.grey),
+                        SizedBox(height: 8),
+                        Text('Could not load QR', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Total Amount
+            const Text(
+              'Total Payment',
+              style: TextStyle(color: AppColors.subText, fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              CurrencyFormatter.vnd(order.totalPrice),
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.w900,
+                color: AppColors.primaryDark,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Manual Transfer Section
+            _buildCopyRow(
+              context,
+              'Account Number',
+              order.paymentInfo?.accountNumber ?? 'N/A',
+              icon: Icons.numbers,
+            ),
+            const SizedBox(height: 12),
+            _buildCopyRow(
+              context,
+              'Amount',
+              order.totalPrice.toString(),
+              displayValue: CurrencyFormatter.vnd(order.totalPrice),
+              icon: Icons.payments,
+            ),
+            const SizedBox(height: 12),
+            _buildCopyRow(
+              context,
+              'Transfer Content',
+              order.transferContent ?? order.code,
+              icon: Icons.edit_document,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCopyRow(BuildContext context, String title, String value,
+      {String? displayValue, required IconData icon}) {
+    return _CopyRowWidget(
+      title: title,
+      value: value,
+      displayValue: displayValue,
+      icon: icon,
     );
   }
 
@@ -1252,6 +1393,112 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Copy Row Widget ──────────────────────────────────────────────────────────
+class _CopyRowWidget extends StatefulWidget {
+  final String title;
+  final String value;
+  final String? displayValue;
+  final IconData icon;
+
+  const _CopyRowWidget({
+    required this.title,
+    required this.value,
+    this.displayValue,
+    required this.icon,
+  });
+
+  @override
+  State<_CopyRowWidget> createState() => _CopyRowWidgetState();
+}
+
+class _CopyRowWidgetState extends State<_CopyRowWidget> {
+  bool _isCopied = false;
+
+  void _handleCopy() {
+    Clipboard.setData(ClipboardData(text: widget.value));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Copied ${widget.title}!'),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+    setState(() {
+      _isCopied = true;
+    });
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _isCopied = false;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _handleCopy,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: _isCopied ? Colors.green.withValues(alpha: 0.08) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: _isCopied ? Colors.green.withValues(alpha: 0.5) : Colors.grey.withValues(alpha: 0.15),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            )
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(widget.icon, color: AppColors.primaryDark, size: 18),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.title,
+                      style: const TextStyle(
+                          color: AppColors.subText, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.displayValue ?? widget.value,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              _isCopied ? Icons.check_circle : Icons.copy_rounded,
+              size: 20,
+              color: _isCopied ? Colors.green : Colors.grey[400],
             ),
           ],
         ),
