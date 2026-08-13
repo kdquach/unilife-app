@@ -9,6 +9,12 @@ import '../../services/profile_provider.dart';
 
 class EditProfileNotifier extends AsyncNotifier<void> {
   final _authService = AuthService(ApiClient());
+  Map<String, String?> _fieldErrors = {
+    'fullName': null,
+    'phone': null,
+  };
+
+  Map<String, String?> get fieldErrors => _fieldErrors;
 
   @override
   FutureOr<void> build() {
@@ -22,17 +28,72 @@ class EditProfileNotifier extends AsyncNotifier<void> {
     final trimmedName = fullName.trim();
     final trimmedPhone = phone.trim();
 
+    // Clear field errors
+    _fieldErrors = {
+      'fullName': null,
+      'phone': null,
+    };
+
     // 1. Client-side validation
     if (trimmedName.isEmpty) {
-      state = AsyncValue.error('Full name cannot be empty', StackTrace.current);
+      _fieldErrors['fullName'] = 'Full name cannot be empty';
+      state = const AsyncValue.data(null);
       return false;
     }
 
+    // Full name validation: at least 2 chars, no leading/trailing spaces, no consecutive spaces, must have first and last name
+    if (trimmedName.length < 2) {
+      _fieldErrors['fullName'] = 'Full name must be at least 2 characters';
+      state = const AsyncValue.data(null);
+      return false;
+    }
+
+    if (trimmedName != trimmedName.trim()) {
+      _fieldErrors['fullName'] = 'Full name must not have leading or trailing spaces';
+      state = const AsyncValue.data(null);
+      return false;
+    }
+
+    if (RegExp(r'\s{2,}').hasMatch(trimmedName)) {
+      _fieldErrors['fullName'] = 'Full name must not have consecutive spaces';
+      state = const AsyncValue.data(null);
+      return false;
+    }
+
+    // Check if name contains at least first and last name with letters only
+    final nameParts = trimmedName.trim().split(RegExp(r'\s+'));
+    if (nameParts.length < 2) {
+      _fieldErrors['fullName'] = 'Full name must contain at least first name and last name';
+      state = const AsyncValue.data(null);
+      return false;
+    }
+
+    // Check if all parts contain only letters (including Vietnamese characters)
+    for (final part in nameParts) {
+      if (!RegExp(r'^[\p{L}]+$', unicode: true).hasMatch(part)) {
+        _fieldErrors['fullName'] = 'Full name must contain only letters and spaces';
+        state = const AsyncValue.data(null);
+        return false;
+      }
+    }
+
     if (trimmedPhone.isNotEmpty) {
-      // Validate Vietnamese phone number format (supports 10-digit numbers starting with 03, 05, 07, 08, 09 or +84 format)
-      final phoneRegex = RegExp(r'^(0|\+84)(3|5|7|8|9)[0-9]{8}$');
-      if (!phoneRegex.hasMatch(trimmedPhone)) {
-        state = AsyncValue.error('Invalid Vietnamese phone number format (e.g. 0912345678 or +84912345678)', StackTrace.current);
+      // Phone validation: Vietnamese phone number format (10 digits starting with 03, 05, 07, 08, 09)
+      if (!RegExp(r'^\d+$').hasMatch(trimmedPhone)) {
+        _fieldErrors['phone'] = 'Phone must contain only numbers';
+        state = const AsyncValue.data(null);
+        return false;
+      }
+
+      if (trimmedPhone.length != 10) {
+        _fieldErrors['phone'] = 'Phone must be exactly 10 digits';
+        state = const AsyncValue.data(null);
+        return false;
+      }
+
+      if (!RegExp(r'^(03|05|07|08|09)\d{8}$').hasMatch(trimmedPhone)) {
+        _fieldErrors['phone'] = 'Phone must be a valid Vietnamese phone number';
+        state = const AsyncValue.data(null);
         return false;
       }
     }
@@ -57,7 +118,7 @@ class EditProfileNotifier extends AsyncNotifier<void> {
       if (response['success'] == true) {
         final data = response['data'] as Map<String, dynamic>;
         final profile = UserProfile.fromJson(data);
-        
+
         // Instantly update global profileProvider state
         ref.read(profileProvider.notifier).updateProfile(profile);
 
@@ -70,7 +131,19 @@ class EditProfileNotifier extends AsyncNotifier<void> {
         );
       }
     } on ApiException catch (error) {
-      state = AsyncValue.error(error.message, StackTrace.current);
+      // Parse field errors from backend response
+      if (error.errors != null && error.errors is Map<String, dynamic>) {
+        final errors = error.errors as Map<String, dynamic>;
+        if (errors['fullName'] != null) {
+          _fieldErrors['fullName'] = errors['fullName'].toString();
+        }
+        if (errors['phone'] != null) {
+          _fieldErrors['phone'] = errors['phone'].toString();
+        }
+        state = const AsyncValue.data(null);
+      } else {
+        state = AsyncValue.error(error.message, StackTrace.current);
+      }
       return false;
     } catch (error) {
       state = AsyncValue.error(error.toString(), StackTrace.current);

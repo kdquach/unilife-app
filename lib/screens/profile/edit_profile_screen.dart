@@ -24,6 +24,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final FocusNode _nameFocus = FocusNode();
   final FocusNode _phoneFocus = FocusNode();
 
+  Map<String, String?> _fieldErrors = {
+    'fullName': null,
+    'phone': null,
+  };
+
   @override
   void initState() {
     super.initState();
@@ -54,7 +59,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   Future<void> _onSubmit() async {
     FocusScope.of(context).unfocus();
-    
+
+    setState(() {
+      _fieldErrors = {
+        'fullName': null,
+        'phone': null,
+      };
+    });
+
     final success = await ref.read(editProfileProvider.notifier).updateProfile(
       fullName: _nameController.text,
       phone: _phoneController.text,
@@ -84,7 +96,13 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final profile = ref.watch(profileProvider).value;
     final editState = ref.watch(editProfileProvider);
     final isLoading = editState.isLoading;
+    final fieldErrors = ref.read(editProfileProvider.notifier).fieldErrors;
     final errorMessage = editState.whenOrNull(error: (err, _) => err.toString());
+
+    // Update field errors from notifier
+    setState(() {
+      _fieldErrors = fieldErrors;
+    });
 
     // Resolve current network avatar URL
     final avatarUrl = profile?.avatarUrl;
@@ -183,8 +201,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // Error Message box (if any)
-                if (errorMessage != null) ...[
+                // Error Message box (if any - only for general errors not field-specific)
+                if (errorMessage != null && _fieldErrors['fullName'] == null && _fieldErrors['phone'] == null) ...[
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
@@ -240,19 +258,37 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _nameController,
-                        focusNode: _nameFocus,
-                        enabled: !isLoading,
-                        textInputAction: TextInputAction.next,
-                        onFieldSubmitted: (_) => FocusScope.of(context).requestFocus(_phoneFocus),
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-                        decoration: const InputDecoration(
-                          hintText: 'Enter full name',
-                          prefixIcon: Icon(Icons.person_outline_rounded, size: 20, color: AppColors.subText),
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: _nameController,
+                            focusNode: _nameFocus,
+                            enabled: !isLoading,
+                            textInputAction: TextInputAction.next,
+                            onFieldSubmitted: (_) => FocusScope.of(context).requestFocus(_phoneFocus),
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                            decoration: const InputDecoration(
+                              hintText: 'Enter full name',
+                              prefixIcon: Icon(Icons.person_outline_rounded, size: 20, color: AppColors.subText),
+                            ),
+                          ),
+                          if (_fieldErrors['fullName'] != null)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 12, top: 4),
+                              child: Text(
+                                _fieldErrors['fullName']!,
+                                style: const TextStyle(
+                                  color: AppColors.error,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 3,
+                                overflow: TextOverflow.visible,
+                              ),
+                            ),
+                          SizedBox(height: _fieldErrors['fullName'] != null ? 20 : 20),
+                        ],
                       ),
-                      const SizedBox(height: 20),
 
                       // Phone
                       const Text(
@@ -264,20 +300,38 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _phoneController,
-                        focusNode: _phoneFocus,
-                        enabled: !isLoading,
-                        keyboardType: TextInputType.phone,
-                        textInputAction: TextInputAction.done,
-                        onFieldSubmitted: (_) => _onSubmit(),
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-                        decoration: const InputDecoration(
-                          hintText: 'Enter phone number',
-                          prefixIcon: Icon(Icons.phone_outlined, size: 20, color: AppColors.subText),
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: _phoneController,
+                            focusNode: _phoneFocus,
+                            enabled: !isLoading,
+                            keyboardType: TextInputType.phone,
+                            textInputAction: TextInputAction.done,
+                            onFieldSubmitted: (_) => _onSubmit(),
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                            decoration: const InputDecoration(
+                              hintText: 'Enter phone number',
+                              prefixIcon: Icon(Icons.phone_outlined, size: 20, color: AppColors.subText),
+                            ),
+                          ),
+                          if (_fieldErrors['phone'] != null)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 12, top: 4),
+                              child: Text(
+                                _fieldErrors['phone']!,
+                                style: const TextStyle(
+                                  color: AppColors.error,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 3,
+                                overflow: TextOverflow.visible,
+                              ),
+                            ),
+                          SizedBox(height: _fieldErrors['phone'] != null ? 20 : 20),
+                        ],
                       ),
-                      const SizedBox(height: 20),
 
                       // Email (Read-Only)
                       const Text(

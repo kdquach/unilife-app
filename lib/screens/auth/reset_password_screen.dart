@@ -161,16 +161,16 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     if (password.contains(' ')) {
       return 'Password must not contain spaces.';
     }
-    if (!password.contains(RegExp(r'[a-z]'))) {
+    if (!RegExp(r'[a-z]').hasMatch(password)) {
       return 'Password must contain at least one lowercase letter.';
     }
-    if (!password.contains(RegExp(r'[A-Z]'))) {
+    if (!RegExp(r'[A-Z]').hasMatch(password)) {
       return 'Password must contain at least one uppercase letter.';
     }
-    if (!password.contains(RegExp(r'[0-9]'))) {
+    if (!RegExp(r'[0-9]').hasMatch(password)) {
       return 'Password must contain at least one number.';
     }
-    if (!password.contains(RegExp(r'[^A-Za-z0-9]'))) {
+    if (!RegExp(r'[^A-Za-z0-9]').hasMatch(password)) {
       return 'Password must contain at least one special character.';
     }
     if (password != confirmPassword) {

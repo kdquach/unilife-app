@@ -50,22 +50,22 @@ class ChangePasswordNotifier extends AsyncNotifier<void> {
       state = const AsyncValue.data(null);
       return false;
     }
-    if (!newPassword.contains(RegExp(r'[a-z]'))) {
+    if (!RegExp(r'[a-z]').hasMatch(newPassword)) {
       _fieldErrors['newPassword'] = 'New password must contain at least one lowercase letter';
       state = const AsyncValue.data(null);
       return false;
     }
-    if (!newPassword.contains(RegExp(r'[A-Z]'))) {
+    if (!RegExp(r'[A-Z]').hasMatch(newPassword)) {
       _fieldErrors['newPassword'] = 'New password must contain at least one uppercase letter';
       state = const AsyncValue.data(null);
       return false;
     }
-    if (!newPassword.contains(RegExp(r'[0-9]'))) {
+    if (!RegExp(r'[0-9]').hasMatch(newPassword)) {
       _fieldErrors['newPassword'] = 'New password must contain at least one number';
       state = const AsyncValue.data(null);
       return false;
     }
-    if (!newPassword.contains(RegExp(r'[^A-Za-z0-9]'))) {
+    if (!RegExp(r'[^A-Za-z0-9]').hasMatch(newPassword)) {
       _fieldErrors['newPassword'] = 'New password must contain at least one special character';
       state = const AsyncValue.data(null);
       return false;
