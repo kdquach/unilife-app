@@ -159,6 +159,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
               .replaceFirst('ApiException: ', '')
               .replaceFirst('Exception: ', '');
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
@@ -298,7 +299,9 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
           );
 
           // Navigate to cart screen
-          Navigator.pushNamed(context, CartScreen.routeName);
+          if (mounted) {
+            Navigator.pushNamed(context, CartScreen.routeName);
+          }
         } else {
           // Some items were unavailable or out of stock
           String message = '';
@@ -348,7 +351,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
           );
 
           // Navigate to cart if any items were added
-          if (successfullyAdded > 0) {
+          if (successfullyAdded > 0 && mounted) {
             Navigator.pushNamed(context, CartScreen.routeName);
           }
         }

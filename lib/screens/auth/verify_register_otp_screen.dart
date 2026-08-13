@@ -54,10 +54,11 @@ class _VerifyRegisterOtpScreenState extends State<VerifyRegisterOtpScreen> {
     });
 
     try {
-      await _authService.verifyRegisterOtp(
+      final response = await _authService.verifyRegisterOtp(
         email: widget.email,
         otp: otp,
       );
+      await AuthService.saveAuthTokens(response);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Account verified. Please login.')),
