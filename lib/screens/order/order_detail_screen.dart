@@ -43,6 +43,11 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
   bool _isLoading = true;
   bool _isReordering = false;
   String? _errorMessage;
+  String? _paymentErrorMessage;
+  String? _paymentWarningMessage;
+  bool _hasShownPaymentError = false;
+  bool _hasShownPaymentWarning = false;
+  bool _hasShownPaymentSuccess = false;
   Timer? _pollingTimer;
 
   late AnimationController _slideController;
@@ -90,13 +95,75 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
       final hasRatedAllItems = await _hasReviewedAllFoodItems(order, token);
 
       if (!mounted) return;
+
+      // Check for payment errors from note (same logic as sepay_payment_provider)
+      String? errorMessage;
+      String? warningMessage;
+      
+      final isSuccess = order.status == 'CONFIRMED' || order.paymentStatus == 'PAID';
+      final note = order.note ?? "";
+      
+      if (!isSuccess) {
+        if (note.contains("Error: Invalid payment amount")) {
+          errorMessage = "You have transferred the incorrect amount. The order is not confirmed, please transfer the correct amount to confirm the order!";
+        } else if (order.paymentStatus == 'REFUND_PENDING') {
+          errorMessage = "The system received a late payment after the order was cancelled. Please show this screen to the Admin to get your money back.";
+        }
+      }
+      
+      if (note.contains("[DUPLICATE_PAYMENT]") || note.contains("[EXTRA_PAYMENT]")) {
+        warningMessage = "The system detected that you overpaid for this order. Please contact the Canteen Admin to get a refund for the excess amount!";
+      }
+
       setState(() {
         _order = order;
         _hasRatedAllItems = hasRatedAllItems;
+        _paymentErrorMessage = errorMessage;
+        _paymentWarningMessage = warningMessage;
         if (!quiet) _isLoading = false;
       });
+
       if (!quiet) _slideController.forward(from: 0);
       _startPolling();
+
+      // Show payment error message (only when polling detects new error, not on first load)
+      if (errorMessage != null && errorMessage.isNotEmpty && !_hasShownPaymentError && quiet && mounted) {
+        _hasShownPaymentError = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+
+      // Show payment warning message (only when polling detects new warning, not on first load)
+      if (warningMessage != null && warningMessage.isNotEmpty && !_hasShownPaymentWarning && quiet && mounted) {
+        _hasShownPaymentWarning = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(warningMessage),
+            backgroundColor: Colors.amber,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+
+      // Show payment success message (only when polling detects success, not on first load)
+      if (isSuccess && _order != null && _order!.paymentStatus == 'PAID' && !_hasShownPaymentSuccess && quiet && mounted) {
+        _hasShownPaymentSuccess = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment successful!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
