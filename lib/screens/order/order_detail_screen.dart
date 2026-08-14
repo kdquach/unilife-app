@@ -612,10 +612,11 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
                           _buildPaymentQRCodeCard(order),
                           const SizedBox(height: 24),
                         ],
-                        // ── Order Code QR (show when order is confirmed/paid and not cancelled/expired/completed)
+                        // ── Order Code QR (show when payment is completed/confirmed and order is PAID or CONFIRMED, not COMPLETED)
                         if (order.status.toUpperCase() != 'CANCELLED' &&
                             order.status.toUpperCase() != 'EXPIRED' &&
                             order.status.toUpperCase() != 'COMPLETED' &&
+                            (order.status.toUpperCase() == 'PAID' || order.status.toUpperCase() == 'CONFIRMED') &&
                             order.code.isNotEmpty) ...[
                           _buildSectionTitle('Order Code'),
                           const SizedBox(height: 12),
