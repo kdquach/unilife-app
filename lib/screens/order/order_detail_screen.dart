@@ -600,8 +600,10 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // ── Order Code Banner ─────────────────────
-                        // ── Payment QR Code (only show when payment is pending and order not cancelled)
+                        // ── Payment QR Code (only show when payment is pending and order not cancelled/expired/completed)
                         if (order.status.toUpperCase() != 'CANCELLED' &&
+                            order.status.toUpperCase() != 'EXPIRED' &&
+                            order.status.toUpperCase() != 'COMPLETED' &&
                             order.paymentStatus.toUpperCase() == 'PENDING' &&
                             order.paymentInfo?.qrCodeUrl != null &&
                             order.paymentInfo!.qrCodeUrl!.isNotEmpty) ...[
@@ -610,9 +612,10 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
                           _buildPaymentQRCodeCard(order),
                           const SizedBox(height: 24),
                         ],
-                        // ── Order Code QR (show when payment is completed/confirmed and order not cancelled)
+                        // ── Order Code QR (show when order is confirmed/paid and not cancelled/expired/completed)
                         if (order.status.toUpperCase() != 'CANCELLED' &&
-                            order.paymentStatus.toUpperCase() != 'PENDING' &&
+                            order.status.toUpperCase() != 'EXPIRED' &&
+                            order.status.toUpperCase() != 'COMPLETED' &&
                             order.code.isNotEmpty) ...[
                           _buildSectionTitle('Order Code'),
                           const SizedBox(height: 12),
