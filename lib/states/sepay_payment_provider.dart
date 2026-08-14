@@ -41,13 +41,6 @@ class SepayPaymentNotifier extends Notifier<SepayPaymentState> {
   Timer? _countdownTimer;
   String? _orderId;
 
-  // Helper function to get current Vietnam time (UTC+7) - matches backend time calculation
-  DateTime _getCurrentVietnamTime() {
-    final now = DateTime.now().toUtc();
-    final vietnamOffset = const Duration(hours: 7);
-    return now.add(vietnamOffset);
-  }
-
   @override
   SepayPaymentState build() {
     ref.onDispose(() {
@@ -63,10 +56,10 @@ class SepayPaymentNotifier extends Notifier<SepayPaymentState> {
 
     int remaining = 900;
     if (order.expiresAt != null) {
-      remaining = order.expiresAt!.difference(_getCurrentVietnamTime()).inSeconds;
+      remaining = order.expiresAt!.difference(DateTime.now()).inSeconds;
       if (remaining < 0) remaining = 0;
     }
-
+    
     state = SepayPaymentState(
       orderState: AsyncData(order),
       remainingSeconds: remaining,
