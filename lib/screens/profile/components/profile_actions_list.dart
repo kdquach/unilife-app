@@ -9,7 +9,6 @@ import '../change_password_screen.dart';
 import '../edit_profile_screen.dart';
 import '../upload_avatar_screen.dart';
 import '../../rating/rating_list_screen.dart';
-import '../../states/ui_states_screen.dart';
 import 'profile_menu_option.dart';
 
 class ProfileActionsList extends StatelessWidget {
@@ -65,14 +64,6 @@ class ProfileActionsList extends StatelessWidget {
           onTap: () => Navigator.pushNamed(context, RatingListScreen.routeName),
         ),
         const SizedBox(height: 24),
-        _buildSectionTitle('App Utilities'),
-        const SizedBox(height: 12),
-        ProfileMenuOption(
-          icon: Icons.code_rounded,
-          iconColor: const Color(0xFF3B82F6),
-          title: 'UI States Screen',
-          onTap: () => Navigator.pushNamed(context, UiStatesScreen.routeName),
-        ),
         ProfileMenuOption(
           icon: Icons.logout_rounded,
           iconColor: AppColors.error,
@@ -148,20 +139,26 @@ class ProfileActionsList extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton(
-                        onPressed:
-                            isLoading ? null : () => Navigator.pop(context),
-                        child: const Text('Stay'),
+                      child: SizedBox(
+                        height: 52,
+                        child: OutlinedButton(
+                          onPressed:
+                              isLoading ? null : () => Navigator.pop(context),
+                          child: const Text('Stay'),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.error),
-                        onPressed:
-                            isLoading ? null : () => handleLogout(setState),
-                        child: Text(isLoading ? 'Logging out...' : 'Logout'),
+                      child: SizedBox(
+                        height: 52,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.error),
+                          onPressed:
+                              isLoading ? null : () => handleLogout(setState),
+                          child: Text(isLoading ? 'Logging out...' : 'Logout'),
+                        ),
                       ),
                     ),
                   ],
