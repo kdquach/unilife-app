@@ -28,27 +28,109 @@ class FoodService {
     String sortOrder = 'desc',
     int limit = 20,
   }) async {
-    final query = keyword.trim();
+    final query = keyword.trim().toLowerCase();
     if (query.isEmpty) return [];
 
-    final path = Uri(
-      path: '/foods/search',
-      queryParameters: {
-        'keyword': query,
-        'isActive': 'true',
-        'sortBy': sortBy,
-        'sortOrder': sortOrder,
-        'limit': limit.toString(),
-        if (kind != null && kind.isNotEmpty) 'kind': kind,
-        if (categoryId != null && categoryId.isNotEmpty)
-          'categoryId': categoryId,
-        if (minPrice != null) 'minPrice': minPrice.toString(),
-        if (maxPrice != null) 'maxPrice': maxPrice.toString(),
-      },
-    ).toString();
+    var foods = await _getSearchableFoods(token: token);
 
-    final response = await _apiClient.getJson(path, token: token);
-    return _parseFoodItems(response);
+    foods = foods.where((food) {
+      final haystack =
+          '${food.name} ${food.description} ${food.category}'.toLowerCase();
+      if (!haystack.contains(query)) return false;
+      if (categoryId != null &&
+          categoryId.isNotEmpty &&
+          food.categoryId != categoryId) {
+        return false;
+      }
+      if (minPrice != null && food.price < minPrice) return false;
+      if (maxPrice != null && food.price > maxPrice) return false;
+      return true;
+    }).toList();
+
+    foods = _sortFoods(foods, sortBy: sortBy, sortOrder: sortOrder);
+
+    if (foods.length > limit) {
+      return foods.sublist(0, limit);
+    }
+    return foods;
+  }
+
+  Future<FoodFilterOptions> getSearchFilterOptions({String? token}) async {
+    final foods = await _getSearchableFoods(token: token);
+    return _buildFilterOptionsFromFoods(foods);
+  }
+
+  Future<List<Food>> _getSearchableFoods({String? token}) async {
+    final results = await Future.wait([
+      getTodayMenuFoods(token: token),
+      getDailyFoods(token: token),
+    ]);
+    return [...results[0], ...results[1]];
+  }
+
+  FoodFilterOptions _buildFilterOptionsFromFoods(List<Food> foods) {
+    final categoriesById = <String, FoodCategory>{};
+    for (final food in foods) {
+      final id = food.categoryId;
+      if (id == null || id.isEmpty || categoriesById.containsKey(id)) {
+        continue;
+      }
+      categoriesById[id] = FoodCategory(
+        id: id,
+        name: food.category,
+      );
+    }
+
+    final categories = categoriesById.values.toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    if (foods.isEmpty) {
+      return FoodFilterOptions(
+        categories: categories,
+        minPrice: 0,
+        maxPrice: 0,
+      );
+    }
+
+    var minPrice = foods.first.price;
+    var maxPrice = foods.first.price;
+    for (final food in foods) {
+      if (food.price < minPrice) minPrice = food.price;
+      if (food.price > maxPrice) maxPrice = food.price;
+    }
+
+    return FoodFilterOptions(
+      categories: categories,
+      minPrice: minPrice,
+      maxPrice: maxPrice,
+    );
+  }
+
+  List<Food> _sortFoods(
+    List<Food> foods, {
+    required String sortBy,
+    required String sortOrder,
+  }) {
+    final sorted = [...foods];
+    final ascending = sortOrder == 'asc';
+
+    int compare(Food a, Food b) {
+      switch (sortBy) {
+        case 'price':
+          return a.price.compareTo(b.price);
+        case 'name':
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        case 'createdAt':
+          final aDate = a.createdAt ?? '';
+          final bDate = b.createdAt ?? '';
+          return aDate.compareTo(bDate);
+        default:
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      }
+    }
+
+    sorted.sort((a, b) => ascending ? compare(a, b) : compare(b, a));
+    return sorted;
   }
 
   Future<FoodFilterOptions> getFoodFilterOptions({
@@ -113,12 +195,13 @@ class FoodService {
     return Food.fromJson(data);
   }
 
-  Future<List<Food>> getAlwaysAvailableFoods({String? token}) async {
-    final response = await _apiClient.getJson(
-      '/foods?kind=alwaysAvailable&isActive=true',
-      token: token,
-    );
+  Future<List<Food>> getDailyFoods({String? token}) async {
+    final response = await _apiClient.getJson('/foods/daily', token: token);
     return _parseFoodItems(response);
+  }
+
+  Future<List<Food>> getAlwaysAvailableFoods({String? token}) async {
+    return getDailyFoods(token: token);
   }
 
   /// Get list of today's menu food from API

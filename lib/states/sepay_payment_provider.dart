@@ -101,7 +101,7 @@ class SepayPaymentNotifier extends Notifier<SepayPaymentState> {
       final note = updatedOrder.note ?? "";
       if (!isSuccess) {
         if (note.contains("Error: Invalid payment amount")) {
-          errorMessage = "You have transferred the incorrect amount. The order is not confirmed, please contact the cashier for a refund!";
+          errorMessage = "You have transferred the incorrect amount. The order is not confirmed, please transfer the correct amount to confirm the order!";
         } else if (updatedOrder.paymentStatus == 'REFUND_PENDING') {
           errorMessage = "The system received a late payment after the order was cancelled. Please show this screen to the Admin to get your money back.";
         }

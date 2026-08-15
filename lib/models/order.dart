@@ -1,7 +1,5 @@
 import 'cart_item.dart';
 
-import 'cart_item.dart';
-
 class PaymentInfo {
   final String? qrCodeUrl;
   final String? bankName;

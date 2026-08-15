@@ -51,13 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final response =
           await _authService.login(email: email, password: password);
-      final token = AuthService.extractAccessToken(response);
-      if (token == null) {
-        if (!mounted) return;
-        setState(() => _errorMessage = 'Login succeeded but missing token.');
-        return;
-      }
-      await AuthStorage.saveToken(token);
+      await AuthService.saveAuthTokens(response);
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, MainShell.routeName);
     } on ApiException catch (error) {

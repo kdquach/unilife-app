@@ -115,7 +115,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _loadSearchFilterOptions() async {
     if (mounted) setState(() => _isLoadingSearchFilters = true);
     try {
-      final options = await _foodService.getAllFoodFilterOptions();
+      final options = await _foodService.getSearchFilterOptions();
       final categories = options.categories.isNotEmpty
           ? options.categories
           : await _foodService.getFoodCategories();

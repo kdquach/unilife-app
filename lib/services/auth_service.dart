@@ -1,9 +1,22 @@
 import 'api_client.dart';
+import 'auth_storage.dart';
 
 class AuthService {
   AuthService(this._apiClient);
 
   final ApiClient _apiClient;
+
+  static Future<void> saveAuthTokens(Map<String, dynamic> response) async {
+    final accessToken = AuthService.extractAccessToken(response);
+    final refreshToken = response['refreshToken'] as String?;
+    
+    if (accessToken != null) {
+      await AuthStorage.saveToken(accessToken);
+    }
+    if (refreshToken != null) {
+      await AuthStorage.saveRefreshToken(refreshToken);
+    }
+  }
 
   Future<Map<String, dynamic>> login(
       {required String email, required String password}) {
@@ -44,6 +57,10 @@ class AuthService {
   Future<Map<String, dynamic>> resendForgotPasswordOtp(String email) {
     return _apiClient
         .postJson('/auth/resend-forgot-password-otp', {'email': email});
+  }
+
+  Future<Map<String, dynamic>> refreshToken({required String refreshToken}) {
+    return _apiClient.postJson('/auth/refresh-token', {'refreshToken': refreshToken});
   }
 
   Future<Map<String, dynamic>> resetPassword(

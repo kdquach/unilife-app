@@ -37,8 +37,19 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
     final currentOrder = state.orderState.value ?? widget.order;
     final isSuccess = currentOrder.status == 'CONFIRMED' ||
         currentOrder.paymentStatus == 'PAID';
+    final isBackendExpired = currentOrder.status == 'CANCELLED' ||
+        currentOrder.paymentStatus == 'EXPIRED' ||
+        (currentOrder.paymentInfo?.qrCodeUrl == null && !isSuccess);
+    final isExpired = isBackendExpired ||
+        (state.remainingSeconds <= 0 && isBackendExpired);
 
     if (isSuccess) {
+      Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
+      return;
+    }
+
+    // If payment is expired, just exit without showing options
+    if (isExpired) {
       Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
       return;
     }
@@ -148,7 +159,7 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Warning'),
           content: const Text(
-              'If you pay later, your current cart will be empty as items are moved to this order. Are you sure you want to leave?'),
+              'Your order will be saved, and you can complete the payment later. Your current cart will be cleared. Are you sure you want to leave?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),

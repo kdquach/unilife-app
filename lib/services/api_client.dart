@@ -105,6 +105,7 @@ class ApiClient {
       throw ApiException(
         statusCode: response.statusCode,
         message: decoded is Map<String, dynamic> ? (decoded['message']?.toString() ?? 'Request failed') : 'Request failed',
+        errors: decoded is Map<String, dynamic> ? decoded['errors'] as Map<String, dynamic>? : null,
       );
     }
     return decoded is Map<String, dynamic> ? decoded : {'data': decoded};
@@ -114,8 +115,9 @@ class ApiClient {
 class ApiException implements Exception {
   final int statusCode;
   final String message;
+  final Map<String, dynamic>? errors;
 
-  ApiException({required this.statusCode, required this.message});
+  ApiException({required this.statusCode, required this.message, this.errors});
 
   @override
   String toString() => message;
