@@ -148,7 +148,7 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Warning'),
           content: const Text(
-              'If you pay later, your current cart will be empty as items are moved to this order. Are you sure you want to leave?'),
+              'Your order will be saved, and you can complete the payment later. Your current cart will be cleared. Are you sure you want to leave?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
