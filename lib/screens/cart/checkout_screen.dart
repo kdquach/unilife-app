@@ -31,6 +31,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final cart = ref.read(cartProvider).value;
     if (cart == null || cart.validItems.isEmpty) return;
 
+    // Prevent double-tap
+    if (_isCheckingOut) return;
+
     setState(() => _isCheckingOut = true);
 
     try {
@@ -52,14 +55,32 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (!mounted) return;
       setState(() => _isCheckingOut = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Checkout failed: ${e.toString().replaceFirst('ApiException: ', '')}'),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      final errorMessage = e.toString().replaceFirst('ApiException: ', '');
+      
+      // Check if it's a duplicate key error and handle it
+      if (errorMessage.contains('duplicate key error') || errorMessage.contains('E11000')) {
+        // Refresh cart and show retry message
+        await ref.read(cartProvider.notifier).refreshCart();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Order code conflict. Please try again.'),
+            backgroundColor: AppColors.warning,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Checkout failed: $errorMessage'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
     }
   }
 
