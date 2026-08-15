@@ -49,6 +49,8 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
   bool _hasShownPaymentWarning = false;
   bool _hasShownPaymentSuccess = false;
   Timer? _pollingTimer;
+  Timer? _paymentTimeoutTimer;
+  int _remainingPaymentSeconds = 0;
 
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
@@ -73,6 +75,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
   @override
   void dispose() {
     _pollingTimer?.cancel();
+    _paymentTimeoutTimer?.cancel();
     _slideController.dispose();
     super.dispose();
   }
@@ -125,6 +128,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
 
       if (!quiet) _slideController.forward(from: 0);
       _startPolling();
+      _startPaymentTimeoutTimer();
 
       // Show payment error message (only when polling detects new error, not on first load)
       if (errorMessage != null && errorMessage.isNotEmpty && !_hasShownPaymentError && quiet && mounted) {
@@ -204,6 +208,58 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
       }
       await _fetchOrderDetail(quiet: true);
     });
+  }
+
+  void _startPaymentTimeoutTimer() {
+    _paymentTimeoutTimer?.cancel();
+    if (_order == null || _order!.status != 'PENDING_PAYMENT') return;
+
+    // Calculate remaining time from expiresAt
+    final expiresAt = _order!.expiresAt;
+    if (expiresAt == null) return;
+
+    final now = DateTime.now();
+    final remainingDuration = expiresAt.difference(now);
+
+    if (remainingDuration.isNegative) {
+      // Already expired, should be handled by backend
+      setState(() {
+        _remainingPaymentSeconds = 0;
+      });
+      return;
+    }
+
+    setState(() {
+      _remainingPaymentSeconds = remainingDuration.inSeconds;
+    });
+
+    _paymentTimeoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      setState(() {
+        if (_remainingPaymentSeconds > 0) {
+          _remainingPaymentSeconds--;
+        } else {
+          timer.cancel();
+          // Auto-refresh order status when timer expires
+          _fetchOrderDetail(quiet: true);
+          // Trigger backend to check for expired orders immediately
+          _triggerExpiredOrderCheck();
+        }
+      });
+    });
+  }
+
+  Future<void> _triggerExpiredOrderCheck() async {
+    try {
+      final token = await AuthStorage.getToken();
+      await _orderService.triggerExpiredOrderCheck(token: token);
+    } catch (_) {
+      // Silently fail - this is just a trigger attempt
+    }
   }
 
   Future<void> _cancelOrder() async {
@@ -1061,6 +1117,15 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
       return const SizedBox.shrink();
     }
 
+    // Check if payment time has expired
+    if (_remainingPaymentSeconds <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    final minutes = _remainingPaymentSeconds ~/ 60;
+    final seconds = _remainingPaymentSeconds % 60;
+    final timeString = '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+
     return Center(
       child: Container(
         constraints: const BoxConstraints(maxWidth: 400),
@@ -1078,6 +1143,43 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
         ),
         child: Column(
           children: [
+            // Countdown Timer
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: _remainingPaymentSeconds <= 60
+                    ? Colors.red.withValues(alpha: 0.1)
+                    : AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _remainingPaymentSeconds <= 60
+                      ? Colors.red.withValues(alpha: 0.3)
+                      : AppColors.primary.withValues(alpha: 0.2),
+                  width: 1.5,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.access_time,
+                    size: 18,
+                    color: _remainingPaymentSeconds <= 60 ? Colors.red : AppColors.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Payment expires in $timeString',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: _remainingPaymentSeconds <= 60 ? Colors.red : AppColors.primaryDark,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
             // Bank Info Header
             Row(
               mainAxisAlignment: MainAxisAlignment.center,

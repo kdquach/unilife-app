@@ -95,4 +95,12 @@ class OrderService {
     }
     return Order.fromJson(data);
   }
+
+  Future<void> triggerExpiredOrderCheck({String? token}) async {
+    try {
+      await _client.postJson('/orders/check-expired', {}, token: token);
+    } catch (_) {
+      // Silently fail - this is just a trigger attempt
+    }
+  }
 }
