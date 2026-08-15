@@ -210,6 +210,13 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
     });
   }
 
+  // Helper function to get current Vietnam time (UTC+7) - matches backend time calculation
+  DateTime _getCurrentVietnamTime() {
+    final now = DateTime.now().toUtc();
+    final vietnamOffset = const Duration(hours: 7);
+    return now.add(vietnamOffset);
+  }
+
   void _startPaymentTimeoutTimer() {
     _paymentTimeoutTimer?.cancel();
     if (_order == null || _order!.status != 'PENDING_PAYMENT') return;
@@ -218,7 +225,8 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
     final expiresAt = _order!.expiresAt;
     if (expiresAt == null) return;
 
-    final now = DateTime.now();
+    // Use Vietnam time (UTC+7) to match backend time calculation
+    final now = _getCurrentVietnamTime();
     final remainingDuration = expiresAt.difference(now);
 
     if (remainingDuration.isNegative) {
