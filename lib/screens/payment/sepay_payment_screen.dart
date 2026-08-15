@@ -37,8 +37,19 @@ class _SepayPaymentScreenState extends ConsumerState<SepayPaymentScreen> {
     final currentOrder = state.orderState.value ?? widget.order;
     final isSuccess = currentOrder.status == 'CONFIRMED' ||
         currentOrder.paymentStatus == 'PAID';
+    final isBackendExpired = currentOrder.status == 'CANCELLED' ||
+        currentOrder.paymentStatus == 'EXPIRED' ||
+        (currentOrder.paymentInfo?.qrCodeUrl == null && !isSuccess);
+    final isExpired = isBackendExpired ||
+        (state.remainingSeconds <= 0 && isBackendExpired);
 
     if (isSuccess) {
+      Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
+      return;
+    }
+
+    // If payment is expired, just exit without showing options
+    if (isExpired) {
       Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
       return;
     }
