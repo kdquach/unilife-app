@@ -631,14 +631,61 @@ class _CartItemRowState extends ConsumerState<_CartItemRow> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 16,
-                      color: isInvalid ? Colors.grey : const Color(0xFF1A1A1A),
-                      decoration: isInvalid ? TextDecoration.lineThrough : null,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                            color: isInvalid ? Colors.grey : const Color(0xFF1A1A1A),
+                            decoration: isInvalid ? TextDecoration.lineThrough : null,
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () async {
+                          final shouldDelete = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => _ConfirmDialog(
+                              title: 'Remove Item',
+                              message: 'Are you sure you want to remove this item from your cart?',
+                            ),
+                          );
+                          if (shouldDelete == true && mounted) {
+                            final messenger = ScaffoldMessenger.of(context);
+                            try {
+                              await ref
+                                  .read(cartProvider.notifier)
+                                  .removeItem(item.cartItemId);
+                            } catch (e) {
+                              final errorMessage = e is ApiException
+                                  ? e.message
+                                  : e.toString().replaceAll('Exception: ', '');
+                              messenger.showSnackBar(SnackBar(
+                                content: Text(errorMessage),
+                                backgroundColor: Colors.red,
+                              ));
+                            }
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: Colors.red.shade600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   if (isInvalid && item.reason != null) ...[
                     const SizedBox(height: 6),
