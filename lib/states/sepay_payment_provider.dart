@@ -76,8 +76,20 @@ class SepayPaymentNotifier extends Notifier<SepayPaymentState> {
         state = state.copyWith(remainingSeconds: state.remainingSeconds - 1);
       } else {
         timer.cancel();
+        // Khi hết thời gian đếm ngược, tự động cancel order
+        _cancelExpiredOrder();
       }
     });
+  }
+
+  Future<void> _cancelExpiredOrder() async {
+    if (_orderId == null) return;
+    try {
+      final token = await AuthStorage.getToken();
+      await _orderService.cancelOrder(_orderId!, token: token);
+    } catch (e) {
+      // Ignore error, backend sẽ tự xử lý
+    }
   }
 
   void _startPolling() {
