@@ -944,18 +944,21 @@ class _HomeFoodCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                     ],
-                    Text(
-                      food.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _homeText,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        height: 1.2,
+                    SizedBox(
+                      height: 24, // Fixed height for name section (2 lines max)
+                      child: Text(
+                        food.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _homeText,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          height: 1.0,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 2),
                     Text(
                       CurrencyFormatter.vnd(food.price),
                       maxLines: 1,
@@ -966,7 +969,7 @@ class _HomeFoodCard extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 4),
                     Row(
                       children: [
                         Expanded(

@@ -203,6 +203,24 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
         }
       }
 
+      // Show order cancelled notification
+      if (_order != null && _order!.status == 'CANCELLED' && mounted) {
+        // Check if status changed from PENDING_PAYMENT or CONFIRMED to CANCELLED
+        if (_previousOrderStatus != null &&
+            (_previousOrderStatus == 'PENDING_PAYMENT' ||
+             _previousOrderStatus == 'CONFIRMED' ||
+             _previousOrderStatus == 'PREPARING')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Your order has been cancelled.'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+
       // Update previous payment status
       if (_order != null) {
         _previousPaymentStatus = _order!.paymentStatus;
