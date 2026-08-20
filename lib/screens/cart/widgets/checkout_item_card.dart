@@ -2,11 +2,23 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../models/cart.dart';
+import '../../../services/api_client.dart';
 
 class CheckoutItemCard extends StatelessWidget {
   final CartItemDto item;
 
   const CheckoutItemCard({super.key, required this.item});
+
+  String? _resolveImageUrl(String? imageUrl) {
+    if (imageUrl == null || imageUrl.isEmpty) return null;
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return imageUrl;
+    }
+    final apiRoot = Uri.parse(ApiClient.baseUrl);
+    final origin = '${apiRoot.scheme}://${apiRoot.authority}';
+    final normalizedPath = imageUrl.startsWith('/') ? imageUrl : '/$imageUrl';
+    return '$origin$normalizedPath';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,16 +48,16 @@ class CheckoutItemCard extends StatelessWidget {
                 color: AppColors.primarySoft,
               ),
               clipBehavior: Clip.antiAlias,
-              child: item.food?.imageUrl != null
+              child: item.food?.imageUrl != null && item.food!.imageUrl!.isNotEmpty
                   ? Image.network(
-                      item.food!.imageUrl!,
+                      _resolveImageUrl(item.food!.imageUrl!)!,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => const Center(
-                        child: Icon(Icons.restaurant, color: AppColors.primary, size: 28),
+                        child: Icon(Icons.fastfood, color: AppColors.primary, size: 28),
                       ),
                     )
                   : const Center(
-                      child: Icon(Icons.restaurant, color: AppColors.primary, size: 28),
+                      child: Icon(Icons.fastfood, color: AppColors.primary, size: 28),
                     ),
             ),
             const SizedBox(width: 14),
