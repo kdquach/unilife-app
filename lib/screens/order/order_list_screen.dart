@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -33,6 +34,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   late String _selectedTab;
+  Timer? _pollingTimer;
 
   final _tabs = ['Active', 'Completed', 'Cancelled'];
 
@@ -41,18 +43,36 @@ class _OrderListScreenState extends State<OrderListScreen> {
     super.initState();
     _selectedTab = _normalizedTab(widget.initialTab);
     _fetchOrders();
+    _startPolling();
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted) {
+        _fetchOrders(quiet: true);
+      }
+    });
   }
 
   String _normalizedTab(String tab) {
     return _tabs.contains(tab) ? tab : 'Active';
   }
 
-  Future<void> _fetchOrders() async {
+  Future<void> _fetchOrders({bool quiet = false}) async {
     if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    if (!quiet) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final token = await AuthStorage.getToken();
@@ -68,10 +88,12 @@ class _OrderListScreenState extends State<OrderListScreen> {
       });
     } catch (error) {
       if (!mounted) return;
-      setState(() {
-        _errorMessage = error.toString().replaceFirst('ApiException: ', '');
-        _isLoading = false;
-      });
+      if (!quiet) {
+        setState(() {
+          _errorMessage = error.toString().replaceFirst('ApiException: ', '');
+          _isLoading = false;
+        });
+      }
     }
   }
 

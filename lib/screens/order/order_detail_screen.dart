@@ -49,6 +49,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
   bool _hasShownPaymentWarning = false;
   bool _hasShownPaymentSuccess = false;
   String? _previousPaymentStatus; // Track previous payment status
+  String? _previousOrderStatus; // Track previous order status
   Timer? _pollingTimer;
   Timer? _paymentTimeoutTimer;
   int _remainingPaymentSeconds = 0;
@@ -171,9 +172,45 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
           );
         }
       }
+
+      // Show order status change notification (run this regardless of isSuccess)
+      if (_order != null && _order!.status == 'PREPARING' && mounted) {
+        // Check if status changed from CONFIRMED to PREPARING
+        if (_previousOrderStatus != null && _previousOrderStatus == 'CONFIRMED') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Your order is now being prepared!'),
+              backgroundColor: Colors.blue,
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+
+      // Show order completed notification
+      if (_order != null && _order!.status == 'COMPLETED' && mounted) {
+        // Check if status changed from PREPARING to COMPLETED
+        if (_previousOrderStatus != null && _previousOrderStatus == 'PREPARING') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Your order is completed!'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+
       // Update previous payment status
       if (_order != null) {
         _previousPaymentStatus = _order!.paymentStatus;
+      }
+
+      // Update previous order status
+      if (_order != null) {
+        _previousOrderStatus = _order!.status;
       }
     } catch (error) {
       if (!mounted) return;
