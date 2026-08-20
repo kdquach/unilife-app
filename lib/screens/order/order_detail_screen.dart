@@ -531,9 +531,8 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
   }
 
   // ─── Backend Status Flow ──────────────────────────────────────────────────
-  // PENDING_PAYMENT → (sepay confirmed) → CONFIRMED
-  // PAID (cash)     → (QR scan)         → CONFIRMED
-  //                                      → (callNextNumber) → COMPLETED
+  // PENDING_PAYMENT → (sepay confirmed) → CONFIRMED → PREPARING → COMPLETED
+  // PAID (cash)     → (QR scan)         → CONFIRMED → PREPARING → COMPLETED
   bool _isStepDone(String status, String step) {
     final s = status.toUpperCase();
     if (s == 'CANCELLED' || s == 'EXPIRED') return false;
@@ -541,9 +540,11 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
       case 'placed':
         return true;
       case 'paid':
-        return s == 'PAID' || s == 'CONFIRMED' || s == 'COMPLETED';
+        return s == 'PAID' || s == 'CONFIRMED' || s == 'PREPARING' || s == 'COMPLETED';
       case 'confirmed':
-        return s == 'CONFIRMED' || s == 'COMPLETED';
+        return s == 'CONFIRMED' || s == 'PREPARING' || s == 'COMPLETED';
+      case 'preparing':
+        return s == 'PREPARING' || s == 'COMPLETED';
       case 'ready':
         return s == 'COMPLETED';
       default:
@@ -561,44 +562,23 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
         return s == 'PENDING_PAYMENT';
       case 'confirmed':
         return s == 'PAID';
-      case 'ready':
+      case 'preparing':
         return s == 'CONFIRMED';
+      case 'ready':
+        return s == 'PREPARING';
       default:
         return false;
     }
   }
 
   _StatusMeta _statusMeta(String status) {
-    switch (status.toUpperCase()) {
-      case 'PENDING_PAYMENT':
-        return _StatusMeta(
-          label: 'Pending Payment',
-        );
-      case 'PAID':
-        return _StatusMeta(
-          label: 'Paid',
-        );
-      case 'CONFIRMED':
-        return _StatusMeta(
-          label: 'In Kitchen',
-        );
-      case 'COMPLETED':
-        return _StatusMeta(
-          label: 'Completed',
-        );
-      case 'CANCELLED':
-        return _StatusMeta(
-          label: 'Cancelled',
-        );
-      case 'EXPIRED':
-        return _StatusMeta(
-          label: 'Expired',
-        );
-      default:
-        return _StatusMeta(
-          label: status,
-        );
-    }
+    // Hiển thị chính xác status của đơn hàng (định dạng title case)
+    final formattedStatus = status
+        .split('_')
+        .map((word) => word.isEmpty ? '' : '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}')
+        .join(' ');
+    
+    return _StatusMeta(label: formattedStatus);
   }
 
   String _formatDateTime(DateTime? dateTime) {
@@ -735,11 +715,13 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
                           _buildPaymentQRCodeCard(order),
                           const SizedBox(height: 24),
                         ],
-                        // ── Order Code QR (show when payment is completed/confirmed and order is PAID or CONFIRMED, not COMPLETED)
+                        // ── Order Code QR (show when payment is completed/confirmed and order is PAID, CONFIRMED, or PREPARING, not COMPLETED)
                         if (order.status.toUpperCase() != 'CANCELLED' &&
                             order.status.toUpperCase() != 'EXPIRED' &&
                             order.status.toUpperCase() != 'COMPLETED' &&
-                            (order.status.toUpperCase() == 'PAID' || order.status.toUpperCase() == 'CONFIRMED') &&
+                            (order.status.toUpperCase() == 'PAID' || 
+                             order.status.toUpperCase() == 'CONFIRMED' || 
+                             order.status.toUpperCase() == 'PREPARING') &&
                             order.code.isNotEmpty) ...[
                           _buildSectionTitle('Order Code'),
                           const SizedBox(height: 12),
@@ -926,6 +908,11 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
         title: 'Order Confirmed',
         icon: Icons.restaurant_rounded,
         stepKey: 'confirmed',
+      ),
+      _TimelineStep(
+        title: 'Preparing',
+        icon: Icons.restaurant_menu_rounded,
+        stepKey: 'preparing',
       ),
       _TimelineStep(
         title: 'Ready for Pickup',

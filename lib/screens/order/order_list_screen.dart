@@ -341,39 +341,16 @@ class _OrderCard extends StatelessWidget {
   const _OrderCard({required this.order});
 
   _StatusConfig _statusConfig(String status) {
-    switch (status.toUpperCase()) {
-      case 'COMPLETED':
-        return _StatusConfig(
-          color: AppColors.text,
-          label: 'Completed',
-        );
-      case 'CANCELLED':
-        return _StatusConfig(
-          color: AppColors.text,
-          label: 'Cancelled',
-        );
-      case 'EXPIRED':
-        return _StatusConfig(
-          color: AppColors.text,
-          label: 'Expired',
-        );
-      case 'CONFIRMED':
-        return _StatusConfig(
-          color: AppColors.text,
-          label: 'In Kitchen',
-        );
-      case 'PAID':
-        return _StatusConfig(
-          color: AppColors.text,
-          label: 'Paid',
-        );
-      case 'PENDING_PAYMENT':
-      default:
-        return _StatusConfig(
-          color: AppColors.text,
-          label: 'Pending',
-        );
-    }
+    // Hiển thị chính xác status của đơn hàng (định dạng title case)
+    final formattedStatus = status
+        .split('_')
+        .map((word) => word.isEmpty ? '' : '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}')
+        .join(' ');
+    
+    return _StatusConfig(
+      color: AppColors.text,
+      label: formattedStatus,
+    );
   }
 
   @override
