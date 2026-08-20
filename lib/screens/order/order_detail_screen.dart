@@ -48,6 +48,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
   bool _hasShownPaymentError = false;
   bool _hasShownPaymentWarning = false;
   bool _hasShownPaymentSuccess = false;
+  String? _previousPaymentStatus; // Track previous payment status
   Timer? _pollingTimer;
   Timer? _paymentTimeoutTimer;
   int _remainingPaymentSeconds = 0;
@@ -156,17 +157,23 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen>
         );
       }
 
-      // Show payment success message (only when polling detects success, not on first load)
-      if (isSuccess && _order != null && _order!.paymentStatus == 'PAID' && !_hasShownPaymentSuccess && quiet && mounted) {
-        _hasShownPaymentSuccess = true;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Payment successful!'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 3),
-          ),
-        );
+      // Show payment success message only when payment status changes from non-PAID to PAID
+      if (isSuccess && _order != null && _order!.paymentStatus == 'PAID' && mounted) {
+        // Check if this is a new payment (status changed from non-PAID to PAID)
+        if (_previousPaymentStatus != null && _previousPaymentStatus != 'PAID') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Payment successful!'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+      // Update previous payment status
+      if (_order != null) {
+        _previousPaymentStatus = _order!.paymentStatus;
       }
     } catch (error) {
       if (!mounted) return;
