@@ -62,6 +62,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<Food> _searchResults = [];
   List<FoodCategory> _searchCategories = [];
   Timer? _searchDebounce;
+  Timer? _pollingTimer;
   String _searchQuery = '';
   String? _searchError;
   String? _selectedSearchCategoryId;
@@ -81,17 +82,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.initState();
     _loadFoods();
     _loadSearchFilterOptions();
+    _startPolling();
   }
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _pollingTimer?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
   }
 
-  Future<void> _loadFoods() async {
+  void _startPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted) {
+        _loadFoods(quiet: true);
+      }
+    });
+  }
+
+  Future<void> _loadFoods({bool quiet = false}) async {
+    if (!quiet) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
     try {
       final results = await Future.wait([
         _foodService.getTodayMenuFoods(),
